@@ -73,22 +73,17 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Install dependencies
+      - name: Build in Alpine
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            meson valac bison \
-            libglib2.0-dev libxml2-dev zlib1g-dev
-
-      - name: Build
-        run: |
-          meson setup builddir --default-library=static --prefer-static
-          meson compile -C builddir
-
-      - name: Verify
-        run: |
-          file builddir/wixl
-          builddir/wixl --version
+          docker run --rm -v "$PWD":/src -w /src alpine:latest sh -c '
+            apk add --no-cache \
+              gcc musl-dev meson vala bison pkgconf \
+              glib-dev glib-static libxml2-dev libxml2-static zlib-dev zlib-static
+            meson setup builddir --default-library=static --prefer-static
+            meson compile -C builddir
+            file builddir/wixl
+            builddir/wixl --version
+          '
 
       - name: Rename binary
         run: cp builddir/wixl wixl-linux-${{ matrix.arch }}
