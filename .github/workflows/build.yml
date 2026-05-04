@@ -42,6 +42,7 @@ jobs:
         shell: msys2 {0}
         run: |
           export PATH="/${{ matrix.msystem }}:/ucrt64/bin:$PATH"
+          export XDG_DATA_DIRS="/ucrt64/share:/${MSYSTEM,,}/share:/usr/share"
           meson setup builddir --default-library=static --prefer-static
           meson compile -C builddir
 
