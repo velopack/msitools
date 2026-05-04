@@ -17,15 +17,18 @@ gio     = dependency('gio-2.0',     version: '>= 2.14', static: true)
 libxml  = dependency('libxml-2.0',  version: '>= 2.7', static: true)
 zlib    = dependency('zlib',        static: true)
 
-add_project_arguments(
-  '-w',
-  '-DGLIB_STATIC_COMPILATION',
-  '-DGOBJECT_STATIC_COMPILATION',
-  '-DGIO_STATIC_COMPILATION',
-  '-DGMODULE_STATIC_COMPILATION',
-  '-DLIBXML_STATIC',
-  language: 'c',
-)
+add_project_arguments('-w', language: 'c')
+
+if host_machine.system() == 'windows'
+  add_project_arguments(
+    '-DGLIB_STATIC_COMPILATION',
+    '-DGOBJECT_STATIC_COMPILATION',
+    '-DGIO_STATIC_COMPILATION',
+    '-DGMODULE_STATIC_COMPILATION',
+    '-DLIBXML_STATIC',
+    language: 'c',
+  )
+endif
 
 bison = find_program('bison')
 

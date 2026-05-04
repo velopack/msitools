@@ -2,9 +2,10 @@ name: Build
 
 on:
   push:
-    branches: [main]
+    branches: [master, develop]
   pull_request:
-    branches: [main]
+    branches: [master, develop]
+  workflow_dispatch:
 
 jobs:
   windows:
@@ -53,3 +54,81 @@ jobs:
         with:
           name: wixl-windows-${{ matrix.arch }}
           path: wixl-${{ matrix.arch }}.exe
+
+  linux:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            meson valac bison \
+            libglib2.0-dev libxml2-dev zlib1g-dev
+
+      - name: Build
+        run: |
+          meson setup builddir --default-library=static --prefer-static
+          meson compile -C builddir
+
+      - name: Verify
+        run: |
+          file builddir/wixl
+          builddir/wixl --version
+
+      - name: Rename binary
+        run: cp builddir/wixl wixl-linux-${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wixl-linux-${{ matrix.arch }}
+          path: wixl-linux-${{ matrix.arch }}
+
+  macos:
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-latest
+          - arch: x64
+            runner: macos-15-intel
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install dependencies
+        run: |
+          brew install meson vala bison glib libxml2
+          echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+
+      - name: Build
+        run: |
+          meson setup builddir --default-library=static --prefer-static
+          meson compile -C builddir
+
+      - name: Verify
+        run: |
+          file builddir/wixl
+          builddir/wixl --version
+
+      - name: Rename binary
+        run: cp builddir/wixl wixl-macos-${{ matrix.arch }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wixl-macos-${{ matrix.arch }}
+          path: wixl-macos-${{ matrix.arch }}
