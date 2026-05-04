@@ -257,10 +257,8 @@ if host_machine.system() == 'windows'
     '-ladvapi32', '-luserenv', '-liphlpapi', '-ldnsapi',
     '-lbcrypt',
   ]
-elif host_machine.system() == 'darwin'
-  platform_link_args = []
 else
-  platform_link_args = ['-static']
+  platform_link_args = []
 endif
 
 # --- wixl common library (util.vala) ---
