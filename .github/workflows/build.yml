@@ -11,14 +11,15 @@ jobs:
   windows:
     runs-on: windows-latest
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - arch: x64
-            msystem: UCRT64
-            prefix: mingw-w64-ucrt-x86_64
           - arch: x86
             msystem: MINGW32
             prefix: mingw-w64-i686
+          - arch: x64
+            msystem: UCRT64
+            prefix: mingw-w64-ucrt-x86_64
 
     steps:
       - uses: actions/checkout@v4
@@ -48,16 +49,18 @@ jobs:
         run: builddir\wixl.exe --version
 
       - name: Rename binary
-        run: copy builddir\wixl.exe wixl-${{ matrix.arch }}.exe
+        run: copy builddir\wixl.exe wixl-win-${{ matrix.arch }}.exe
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wixl-windows-${{ matrix.arch }}
-          path: wixl-${{ matrix.arch }}.exe
+          name: build-win-${{ matrix.arch }}
+          path: wixl-win-${{ matrix.arch }}.exe
+          retention-days: 1
 
   linux:
     runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - arch: x64
@@ -92,12 +95,14 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wixl-linux-${{ matrix.arch }}
+          name: build-linux-${{ matrix.arch }}
           path: wixl-linux-${{ matrix.arch }}
+          retention-days: 1
 
   macos:
     runs-on: ${{ matrix.runner }}
     strategy:
+      fail-fast: false
       matrix:
         include:
           - arch: arm64
@@ -130,5 +135,38 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wixl-macos-${{ matrix.arch }}
+          name: build-macos-${{ matrix.arch }}
           path: wixl-macos-${{ matrix.arch }}
+          retention-days: 1
+
+  package:
+    runs-on: macos-latest
+    needs: [windows, linux, macos]
+    if: always() && !cancelled()
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: build-*
+          merge-multiple: true
+
+      - name: Create macOS universal binary
+        run: |
+          lipo -create wixl-macos-arm64 wixl-macos-x64 -output wixl-osx-universal
+          chmod +x wixl-osx-universal
+          file wixl-osx-universal
+          rm wixl-macos-arm64 wixl-macos-x64
+
+      - name: Prepare release directory
+        run: |
+          mkdir release
+          mv wixl-win-x86.exe release/
+          mv wixl-win-x64.exe release/
+          mv wixl-linux-x64 release/
+          mv wixl-linux-arm64 release/
+          mv wixl-osx-universal release/
+          ls -la release/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wixl
+          path: release/*
