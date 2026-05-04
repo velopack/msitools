@@ -257,6 +257,8 @@ if host_machine.system() == 'windows'
     '-ladvapi32', '-luserenv', '-liphlpapi', '-ldnsapi',
     '-lbcrypt',
   ]
+elif host_machine.system() == 'linux'
+  platform_link_args = ['-static', '-leconf']
 else
   platform_link_args = []
 endif

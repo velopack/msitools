@@ -77,13 +77,24 @@ jobs:
       - name: Build in Alpine
         run: |
           docker run --rm -v "$PWD":/src -w /src alpine:latest sh -c '
+            set -e
             apk add --no-cache \
               gcc musl-dev meson vala bison pkgconf file \
-              glib-dev glib-static libxml2-dev libxml2-static zlib-dev zlib-static \
-              pcre2-dev pcre2-static util-linux-dev xz-dev xz-static
+              glib-dev glib-static \
+              libxml2-dev libxml2-static \
+              zlib-dev zlib-static \
+              pcre2-dev pcre2-static \
+              libffi-dev \
+              xz-dev xz-static \
+              util-linux-dev util-linux-static \
+              libeconf-dev
+            echo "=== Verifying static libs ==="
+            ls /usr/lib/libglib-2.0.a /usr/lib/libgio-2.0.a /usr/lib/libgobject-2.0.a /usr/lib/libxml2.a /usr/lib/libz.a /usr/lib/libpcre2-8.a /usr/lib/libffi.a /usr/lib/liblzma.a /usr/lib/libmount.a /usr/lib/libblkid.a /usr/lib/libeconf.a
+            echo "=== All static libs found ==="
             meson setup builddir --default-library=static --prefer-static
             meson compile -C builddir
             file builddir/wixl
+            ldd builddir/wixl || echo "statically linked"
             builddir/wixl --version
           '
 
@@ -139,7 +150,6 @@ jobs:
   package:
     runs-on: macos-latest
     needs: [windows, linux, macos]
-    if: always() && !cancelled()
     steps:
       - uses: actions/download-artifact@v4
         with:
