@@ -7,3 +7,6 @@
 [submodule "libgsf"]
 	path = libgsf
 	url = https://gitlab.gnome.org/GNOME/libgsf.git
+[submodule "libeconf"]
+	path = libeconf
+	url = https://github.com/openSUSE/libeconf.git

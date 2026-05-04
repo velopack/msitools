@@ -250,6 +250,24 @@ libmsi_dep = declare_dependency(
   dependencies: libmsi_deps,
 )
 
+# --- libeconf (static, built from source — needed on Linux for libblkid) ---
+platform_link_deps = []
+if host_machine.system() == 'linux'
+  libeconf = static_library('econf',
+    'libeconf/lib/econf_error.c',
+    'libeconf/lib/getfilecontents.c',
+    'libeconf/lib/get_value_def.c',
+    'libeconf/lib/helpers.c',
+    'libeconf/lib/keyfile.c',
+    'libeconf/lib/libeconf.c',
+    'libeconf/lib/libeconf_ext.c',
+    'libeconf/lib/mergefiles.c',
+    'libeconf/lib/readconfig.c',
+    include_directories: include_directories('libeconf/include', 'libeconf/lib'),
+  )
+  platform_link_deps = [libeconf]
+endif
+
 # --- Platform-specific link args ---
 if host_machine.system() == 'windows'
   platform_link_args = [
@@ -258,7 +276,7 @@ if host_machine.system() == 'windows'
     '-lbcrypt',
   ]
 elif host_machine.system() == 'linux'
-  platform_link_args = ['-static', '-leconf']
+  platform_link_args = ['-static']
 else
   platform_link_args = []
 endif
@@ -301,7 +319,7 @@ wixl = executable('wixl',
   ],
   c_args: ['-include', meson.project_build_root() / 'config.h'],
   include_directories: [inc_dirs, gcab_inc_dirs],
-  link_with: libcommon,
+  link_with: [libcommon] + platform_link_deps,
   dependencies: [libmsi_dep, libgcab_dep, glib, gio, libxml],
   link_args: platform_link_args,
   install: true,
