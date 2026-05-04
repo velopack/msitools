@@ -1,0 +1,55 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        include:
+          - arch: x64
+            msystem: UCRT64
+            prefix: mingw-w64-ucrt-x86_64
+          - arch: x86
+            msystem: MINGW32
+            prefix: mingw-w64-i686
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: ${{ matrix.msystem }}
+          install: >-
+            ${{ matrix.prefix }}-gcc
+            ${{ matrix.prefix }}-meson
+            ${{ matrix.prefix }}-pkgconf
+            ${{ matrix.prefix }}-glib2
+            ${{ matrix.prefix }}-libxml2
+            mingw-w64-ucrt-x86_64-vala
+            bison
+
+      - name: Build
+        shell: msys2 {0}
+        run: |
+          export PATH="/${{ matrix.msystem }}:/ucrt64/bin:$PATH"
+          meson setup builddir --default-library=static --prefer-static
+          meson compile -C builddir
+
+      - name: Verify
+        run: builddir\wixl.exe --version
+
+      - name: Rename binary
+        run: copy builddir\wixl.exe wixl-${{ matrix.arch }}.exe
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wixl-windows-${{ matrix.arch }}
+          path: wixl-${{ matrix.arch }}.exe
