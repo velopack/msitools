@@ -80,7 +80,7 @@ jobs:
             apk add --no-cache \
               gcc musl-dev meson vala bison pkgconf file \
               glib-dev glib-static libxml2-dev libxml2-static zlib-dev zlib-static \
-              pcre2-dev util-linux-dev xz-dev libffi-dev
+              pcre2-dev pcre2-static util-linux-dev xz-dev xz-static
             meson setup builddir --default-library=static --prefer-static
             meson compile -C builddir
             file builddir/wixl
@@ -97,69 +97,73 @@ jobs:
           retention-days: 1
 
   macos:
-    runs-on: macos-latest
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: arm64
+            runner: macos-latest
+          - arch: x64
+            runner: macos-15-intel
+
     steps:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
 
-      - name: Install ARM64 dependencies
+      - name: Install dependencies
         run: |
           brew install meson vala bison glib libxml2
           echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
 
-      - name: Build ARM64
+      - name: Build
         run: |
-          meson setup build-arm64 --default-library=static --prefer-static
-          meson compile -C build-arm64
-          file build-arm64/wixl
-          build-arm64/wixl --version
+          meson setup builddir --default-library=static --prefer-static
+          meson compile -C builddir
 
-      - name: Install x86_64 Homebrew and dependencies
+      - name: Verify
         run: |
-          arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-          arch -x86_64 /usr/local/bin/brew install meson vala bison glib libxml2
+          file builddir/wixl
+          builddir/wixl --version
 
-      - name: Build x86_64 (via Rosetta)
-        run: |
-          arch -x86_64 bash -c '
-            export PATH="/usr/local/bin:/usr/local/opt/bison/bin:$PATH"
-            meson setup build-x64 --default-library=static --prefer-static
-            meson compile -C build-x64
-            file build-x64/wixl
-            build-x64/wixl --version
-          '
-
-      - name: Create universal binary
-        run: |
-          lipo -create build-arm64/wixl build-x64/wixl -output wixl-osx-universal
-          chmod +x wixl-osx-universal
-          file wixl-osx-universal
+      - name: Rename binary
+        run: cp builddir/wixl wixl-macos-${{ matrix.arch }}
 
       - uses: actions/upload-artifact@v4
         with:
-          name: build-osx
-          path: wixl-osx-universal
+          name: build-macos-${{ matrix.arch }}
+          path: wixl-macos-${{ matrix.arch }}
           retention-days: 1
 
   package:
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     needs: [windows, linux, macos]
+    if: always() && !cancelled()
     steps:
       - uses: actions/download-artifact@v4
         with:
           pattern: build-*
           merge-multiple: true
 
-      - name: List binaries
-        run: ls -la
+      - name: Create macOS universal binary
+        run: |
+          lipo -create wixl-macos-arm64 wixl-macos-x64 -output wixl-osx-universal
+          chmod +x wixl-osx-universal
+          file wixl-osx-universal
+          rm wixl-macos-arm64 wixl-macos-x64
+
+      - name: Prepare release directory
+        run: |
+          mkdir release
+          mv wixl-win-x86.exe release/
+          mv wixl-win-x64.exe release/
+          mv wixl-linux-x64 release/
+          mv wixl-linux-arm64 release/
+          mv wixl-osx-universal release/
+          ls -la release/
 
       - uses: actions/upload-artifact@v4
         with:
           name: wixl
-          path: |
-            wixl-win-x86.exe
-            wixl-win-x64.exe
-            wixl-linux-x64
-            wixl-linux-arm64
-            wixl-osx-universal
+          path: release/*
