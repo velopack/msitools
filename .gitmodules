@@ -3,10 +3,10 @@
 	url = https://github.com/GNOME/msitools
 [submodule "gcab"]
 	path = gcab
-	url = https://gitlab.gnome.org/GNOME/gcab.git
+	url = https://github.com/GNOME/gcab.git
 [submodule "libgsf"]
 	path = libgsf
-	url = https://gitlab.gnome.org/GNOME/libgsf.git
+	url = https://github.com/GNOME/libgsf.git
 [submodule "libeconf"]
 	path = libeconf
 	url = https://github.com/openSUSE/libeconf.git
