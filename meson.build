@@ -14,7 +14,6 @@ gnome = import('gnome')
 glib    = dependency('glib-2.0',    version: '>= 2.12', static: true)
 gobject = dependency('gobject-2.0', version: '>= 0.9.4', static: true)
 gio     = dependency('gio-2.0',     version: '>= 2.14', static: true)
-libxml  = dependency('libxml-2.0',  version: '>= 2.7', static: true)
 zlib    = dependency('zlib',        static: true)
 
 add_project_arguments('-w', language: 'c')
@@ -29,6 +28,113 @@ if host_machine.system() == 'windows'
     language: 'c',
   )
 endif
+
+# --- libxml2 (static, built from source) ---
+cc = meson.get_compiler('c')
+
+xml2_version_config = configuration_data()
+xml2_version_config.set('VERSION', '2.16.0')
+xml2_version_config.set('LIBXML_VERSION_NUMBER', '21600')
+xml2_version_config.set('LIBXML_VERSION_EXTRA', '')
+xml2_version_config.set('WITH_THREADS', 1)
+xml2_version_config.set('WITH_THREAD_ALLOC', 0)
+xml2_version_config.set('WITH_OUTPUT', 1)
+xml2_version_config.set('WITH_PUSH', 1)
+xml2_version_config.set('WITH_READER', 1)
+xml2_version_config.set('WITH_PATTERN', 0)
+xml2_version_config.set('WITH_WRITER', 1)
+xml2_version_config.set('WITH_SAX1', 0)
+xml2_version_config.set('WITH_HTTP', 0)
+xml2_version_config.set('WITH_VALID', 1)
+xml2_version_config.set('WITH_HTML', 0)
+xml2_version_config.set('WITH_C14N', 0)
+xml2_version_config.set('WITH_CATALOG', 0)
+xml2_version_config.set('WITH_WINPATH', host_machine.system() == 'windows' ? 1 : 0)
+xml2_version_config.set('WITH_XPATH', 0)
+xml2_version_config.set('WITH_XPTR', 0)
+xml2_version_config.set('WITH_XINCLUDE', 0)
+xml2_version_config.set('WITH_ICONV', 1)
+xml2_version_config.set('WITH_ICU', 0)
+xml2_version_config.set('WITH_ISO8859X', 1)
+xml2_version_config.set('WITH_DEBUG', 0)
+xml2_version_config.set('WITH_REGEXPS', 0)
+xml2_version_config.set('WITH_RELAXNG', 0)
+xml2_version_config.set('WITH_SCHEMAS', 0)
+xml2_version_config.set('WITH_SCHEMATRON', 0)
+xml2_version_config.set('WITH_MODULES', 0)
+xml2_version_config.set('WITH_ZLIB', 1)
+xml2_version_config.set('MODULE_EXTENSION', '')
+
+xml2_version_h = configure_file(
+  input: 'libxml2/include/libxml/xmlversion.h.in',
+  output: 'xmlversion-gen.h',
+  configuration: xml2_version_config,
+)
+
+xml2_config = configuration_data()
+xml2_config.set('HAVE_STDINT_H', 1)
+xml2_config.set('HAVE_DECL_GETENTROPY', cc.has_function('getentropy', prefix: '#include <sys/random.h>') ? 1 : 0)
+xml2_config.set('HAVE_DECL_GLOB', cc.has_function('glob', prefix: '#include <glob.h>') ? 1 : 0)
+xml2_config.set('HAVE_DECL_MMAP', cc.has_function('mmap', prefix: '#include <sys/mman.h>') ? 1 : 0)
+xml2_config.set('HAVE_FUNC_ATTRIBUTE_DESTRUCTOR', cc.compiles('void __attribute__((destructor)) f(void) {} int main(void) { return 0; }') ? 1 : false)
+xml2_config.set('HAVE_DLOPEN', cc.has_function('dlopen') ? 1 : false)
+xml2_config.set('XML_THREAD_LOCAL', '_Thread_local')
+
+xml2_config_h = configure_file(
+  output: 'xml2-config.h',
+  configuration: xml2_config,
+)
+
+libxml2_sources = files(
+  'libxml2/buf.c',
+  'libxml2/chvalid.c',
+  'libxml2/dict.c',
+  'libxml2/encoding.c',
+  'libxml2/entities.c',
+  'libxml2/error.c',
+  'libxml2/globals.c',
+  'libxml2/hash.c',
+  'libxml2/list.c',
+  'libxml2/parser.c',
+  'libxml2/parserInternals.c',
+  'libxml2/SAX2.c',
+  'libxml2/threads.c',
+  'libxml2/tree.c',
+  'libxml2/uri.c',
+  'libxml2/valid.c',
+  'libxml2/xmlIO.c',
+  'libxml2/xmlmemory.c',
+  'libxml2/xmlstring.c',
+  'libxml2/xmlsave.c',
+  'libxml2/xmlreader.c',
+  'libxml2/xmlwriter.c',
+)
+
+libxml2_deps = [zlib]
+
+xml2_all_inc_dirs = include_directories(
+  '.',
+  'libxml2',
+  'libxml2/include',
+)
+
+libxml2 = static_library('xml2',
+  libxml2_sources,
+  xml2_config_h,
+  xml2_version_h,
+  include_directories: xml2_all_inc_dirs,
+  dependencies: libxml2_deps,
+  c_args: [
+    '-include', meson.project_build_root() / 'xml2-config.h',
+  ],
+)
+
+libxml = declare_dependency(
+  link_with: libxml2,
+  include_directories: xml2_all_inc_dirs,
+  dependencies: libxml2_deps,
+  sources: xml2_version_h,
+)
 
 bison = find_program('bison')
 
@@ -252,7 +358,6 @@ libmsi_dep = declare_dependency(
 
 # --- Platform-specific dependencies and link args ---
 platform_link_deps = []
-platform_extra_deps = []
 
 if host_machine.system() == 'linux'
   libeconf = static_library('econf',
@@ -319,13 +424,14 @@ wixl = executable('wixl',
     '--pkg', 'posix',
     '--pkg', 'libmsi-1.0',
     '--pkg', 'libgcab-1.0',
+    '--pkg', 'libxml-2.0',
     '--vapidir=' + vapi_dir,
     '--vapidir=' + meson.project_build_root(),
   ],
   c_args: ['-include', meson.project_build_root() / 'config.h'],
   include_directories: [inc_dirs, gcab_inc_dirs],
   link_with: [libcommon] + platform_link_deps,
-  dependencies: [libmsi_dep, libgcab_dep, glib, gio, libxml] + platform_extra_deps,
+  dependencies: [libmsi_dep, libgcab_dep, glib, gio, libxml],
   link_args: platform_link_args,
   install: true,
 )

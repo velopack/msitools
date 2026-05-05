@@ -34,7 +34,6 @@ jobs:
             ${{ matrix.prefix }}-meson
             ${{ matrix.prefix }}-pkgconf
             ${{ matrix.prefix }}-glib2
-            ${{ matrix.prefix }}-libxml2
             mingw-w64-ucrt-x86_64-vala
             bison
 
@@ -81,14 +80,13 @@ jobs:
             apk add --no-cache \
               gcc musl-dev meson vala bison pkgconf file \
               glib-dev glib-static \
-              libxml2-dev libxml2-static \
               zlib-dev zlib-static \
               pcre2-dev pcre2-static \
               libffi-dev \
               xz-dev xz-static \
               util-linux-dev util-linux-static
             echo "=== Verifying static libs ==="
-            ls /usr/lib/libglib-2.0.a /usr/lib/libgio-2.0.a /usr/lib/libgobject-2.0.a /usr/lib/libxml2.a /usr/lib/libz.a /usr/lib/libpcre2-8.a /usr/lib/libffi.a /usr/lib/liblzma.a /usr/lib/libmount.a /usr/lib/libblkid.a
+            ls /usr/lib/libglib-2.0.a /usr/lib/libgio-2.0.a /usr/lib/libgobject-2.0.a /usr/lib/libz.a /usr/lib/libpcre2-8.a /usr/lib/libffi.a /usr/lib/liblzma.a /usr/lib/libmount.a /usr/lib/libblkid.a
             meson setup builddir --default-library=static --prefer-static
             meson compile -C builddir
             file builddir/wixl
@@ -123,30 +121,13 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install meson vala bison glib libxml2 zlib libffi cmake
+          brew install meson vala bison glib zlib libffi
           echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
-
-      - name: Build static libxml2
-        run: |
-          brew fetch --force libxml2
-          TARBALL=$(brew --cache libxml2)
-          TMPDIR=$(mktemp -d)
-          tar xf "$TARBALL" -C "$TMPDIR"
-          cd "$TMPDIR"/libxml2-*
-          cmake -B build \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DLIBXML2_WITH_PYTHON=OFF \
-            -DLIBXML2_WITH_ICU=OFF \
-            -DLIBXML2_WITH_LZMA=OFF \
-            -DZLIB_ROOT=$(brew --prefix zlib)
-          cmake --build build
-          cp build/libxml2.a "$(brew --prefix libxml2)/lib/"
 
       - name: Build
         run: |
-          export PKG_CONFIG_PATH="$(brew --prefix libxml2)/lib/pkgconfig:$(brew --prefix zlib)/lib/pkgconfig:$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH"
-          export LDFLAGS="-L$(brew --prefix zlib)/lib -L$(brew --prefix libffi)/lib -L$(brew --prefix libxml2)/lib"
-          export CPPFLAGS="-I$(brew --prefix libxml2)/include"
+          export PKG_CONFIG_PATH="$(brew --prefix zlib)/lib/pkgconfig:$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export LDFLAGS="-L$(brew --prefix zlib)/lib -L$(brew --prefix libffi)/lib"
           meson setup builddir --default-library=static --prefer-static
           meson compile -C builddir
 
