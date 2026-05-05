@@ -123,18 +123,43 @@ jobs:
 
       - name: Install dependencies
         run: |
-          brew install meson vala bison glib libxml2
+          brew install meson vala bison glib libxml2 zlib libffi cmake
           echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+
+      - name: Build static libxml2
+        run: |
+          brew fetch --force libxml2
+          TARBALL=$(brew --cache libxml2)
+          TMPDIR=$(mktemp -d)
+          tar xf "$TARBALL" -C "$TMPDIR"
+          cd "$TMPDIR"/libxml2-*
+          cmake -B build \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DLIBXML2_WITH_PYTHON=OFF \
+            -DLIBXML2_WITH_ICU=OFF \
+            -DLIBXML2_WITH_LZMA=OFF \
+            -DZLIB_ROOT=$(brew --prefix zlib)
+          cmake --build build
+          cp build/libxml2.a "$(brew --prefix libxml2)/lib/"
 
       - name: Build
         run: |
+          export PKG_CONFIG_PATH="$(brew --prefix libxml2)/lib/pkgconfig:$(brew --prefix zlib)/lib/pkgconfig:$(brew --prefix libffi)/lib/pkgconfig:$PKG_CONFIG_PATH"
+          export LDFLAGS="-L$(brew --prefix zlib)/lib -L$(brew --prefix libffi)/lib -L$(brew --prefix libxml2)/lib"
+          export CPPFLAGS="-I$(brew --prefix libxml2)/include"
           meson setup builddir --default-library=static --prefer-static
           meson compile -C builddir
 
       - name: Verify
         run: |
           file builddir/wixl
+          otool -L builddir/wixl
+          ls -lh builddir/wixl
           builddir/wixl --version
+          if otool -L builddir/wixl | grep -E '\.(dylib|so)' | grep -v '/usr/lib/\|/System/Library/'; then
+            echo "ERROR: Found non-system dynamic dependencies!"
+            exit 1
+          fi
 
       - name: Rename binary
         run: cp builddir/wixl wixl-macos-${{ matrix.arch }}
