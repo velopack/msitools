@@ -29,112 +29,108 @@ if host_machine.system() == 'windows'
   )
 endif
 
-# --- libxml2 (static, built from source) ---
-cc = meson.get_compiler('c')
+# --- libxml2 ---
+if host_machine.system() == 'darwin'
+  # Build from source on macOS — Homebrew doesn't provide a static libxml2.a
+  cc = meson.get_compiler('c')
 
-xml2_version_config = configuration_data()
-xml2_version_config.set('VERSION', '2.16.0')
-xml2_version_config.set('LIBXML_VERSION_NUMBER', '21600')
-xml2_version_config.set('LIBXML_VERSION_EXTRA', '')
-xml2_version_config.set('WITH_THREADS', 1)
-xml2_version_config.set('WITH_THREAD_ALLOC', 0)
-xml2_version_config.set('WITH_OUTPUT', 1)
-xml2_version_config.set('WITH_PUSH', 1)
-xml2_version_config.set('WITH_READER', 1)
-xml2_version_config.set('WITH_PATTERN', 0)
-xml2_version_config.set('WITH_WRITER', 1)
-xml2_version_config.set('WITH_SAX1', 0)
-xml2_version_config.set('WITH_HTTP', 0)
-xml2_version_config.set('WITH_VALID', 1)
-xml2_version_config.set('WITH_HTML', 0)
-xml2_version_config.set('WITH_C14N', 0)
-xml2_version_config.set('WITH_CATALOG', 0)
-xml2_version_config.set('WITH_WINPATH', host_machine.system() == 'windows' ? 1 : 0)
-xml2_version_config.set('WITH_XPATH', 0)
-xml2_version_config.set('WITH_XPTR', 0)
-xml2_version_config.set('WITH_XINCLUDE', 0)
-xml2_version_config.set('WITH_ICONV', 1)
-xml2_version_config.set('WITH_ICU', 0)
-xml2_version_config.set('WITH_ISO8859X', 1)
-xml2_version_config.set('WITH_DEBUG', 0)
-xml2_version_config.set('WITH_REGEXPS', 0)
-xml2_version_config.set('WITH_RELAXNG', 0)
-xml2_version_config.set('WITH_SCHEMAS', 0)
-xml2_version_config.set('WITH_SCHEMATRON', 0)
-xml2_version_config.set('WITH_MODULES', 0)
-xml2_version_config.set('WITH_ZLIB', 1)
-xml2_version_config.set('MODULE_EXTENSION', '')
+  xml2_version_config = configuration_data()
+  xml2_version_config.set('VERSION', '2.16.0')
+  xml2_version_config.set('LIBXML_VERSION_NUMBER', '21600')
+  xml2_version_config.set('LIBXML_VERSION_EXTRA', '')
+  xml2_version_config.set('WITH_THREADS', 1)
+  xml2_version_config.set('WITH_THREAD_ALLOC', 0)
+  xml2_version_config.set('WITH_OUTPUT', 1)
+  xml2_version_config.set('WITH_PUSH', 1)
+  xml2_version_config.set('WITH_READER', 1)
+  xml2_version_config.set('WITH_PATTERN', 0)
+  xml2_version_config.set('WITH_WRITER', 1)
+  xml2_version_config.set('WITH_SAX1', 0)
+  xml2_version_config.set('WITH_HTTP', 0)
+  xml2_version_config.set('WITH_VALID', 1)
+  xml2_version_config.set('WITH_HTML', 0)
+  xml2_version_config.set('WITH_C14N', 0)
+  xml2_version_config.set('WITH_CATALOG', 0)
+  xml2_version_config.set('WITH_WINPATH', 0)
+  xml2_version_config.set('WITH_XPATH', 0)
+  xml2_version_config.set('WITH_XPTR', 0)
+  xml2_version_config.set('WITH_XINCLUDE', 0)
+  xml2_version_config.set('WITH_ICONV', 1)
+  xml2_version_config.set('WITH_ICU', 0)
+  xml2_version_config.set('WITH_ISO8859X', 1)
+  xml2_version_config.set('WITH_DEBUG', 0)
+  xml2_version_config.set('WITH_REGEXPS', 0)
+  xml2_version_config.set('WITH_RELAXNG', 0)
+  xml2_version_config.set('WITH_SCHEMAS', 0)
+  xml2_version_config.set('WITH_SCHEMATRON', 0)
+  xml2_version_config.set('WITH_MODULES', 0)
+  xml2_version_config.set('WITH_ZLIB', 1)
+  xml2_version_config.set('MODULE_EXTENSION', '')
 
-xml2_version_h = configure_file(
-  input: 'libxml2/include/libxml/xmlversion.h.in',
-  output: 'xmlversion-gen.h',
-  configuration: xml2_version_config,
-)
+  xml2_version_h = configure_file(
+    input: 'libxml2/include/libxml/xmlversion.h.in',
+    output: 'xmlversion.h',
+    configuration: xml2_version_config,
+  )
 
-xml2_config = configuration_data()
-xml2_config.set('HAVE_STDINT_H', 1)
-xml2_config.set('HAVE_DECL_GETENTROPY', cc.has_function('getentropy', prefix: '#include <sys/random.h>') ? 1 : 0)
-xml2_config.set('HAVE_DECL_GLOB', cc.has_function('glob', prefix: '#include <glob.h>') ? 1 : 0)
-xml2_config.set('HAVE_DECL_MMAP', cc.has_function('mmap', prefix: '#include <sys/mman.h>') ? 1 : 0)
-xml2_config.set('HAVE_FUNC_ATTRIBUTE_DESTRUCTOR', cc.compiles('void __attribute__((destructor)) f(void) {} int main(void) { return 0; }') ? 1 : false)
-xml2_config.set('HAVE_DLOPEN', cc.has_function('dlopen') ? 1 : false)
-xml2_config.set('XML_THREAD_LOCAL', '_Thread_local')
+  run_command('mkdir', '-p', meson.project_build_root() / 'libxml', check: true)
+  run_command('cp', meson.project_build_root() / 'xmlversion.h',
+    meson.project_build_root() / 'libxml' / 'xmlversion.h', check: true)
 
-xml2_config_h = configure_file(
-  output: 'xml2-config.h',
-  configuration: xml2_config,
-)
+  xml2_config = configuration_data()
+  xml2_config.set('HAVE_STDINT_H', 1)
+  xml2_config.set('HAVE_DECL_GETENTROPY', cc.has_function('getentropy', prefix: '#include <sys/random.h>') ? 1 : 0)
+  xml2_config.set('HAVE_DECL_GLOB', cc.has_function('glob', prefix: '#include <glob.h>') ? 1 : 0)
+  xml2_config.set('HAVE_DECL_MMAP', cc.has_function('mmap', prefix: '#include <sys/mman.h>') ? 1 : 0)
+  xml2_config.set('HAVE_FUNC_ATTRIBUTE_DESTRUCTOR', cc.compiles('void __attribute__((destructor)) f(void) {} int main(void) { return 0; }') ? 1 : false)
+  xml2_config.set('HAVE_DLOPEN', cc.has_function('dlopen') ? 1 : false)
+  xml2_config.set('XML_THREAD_LOCAL', '_Thread_local')
 
-libxml2_sources = files(
-  'libxml2/buf.c',
-  'libxml2/chvalid.c',
-  'libxml2/dict.c',
-  'libxml2/encoding.c',
-  'libxml2/entities.c',
-  'libxml2/error.c',
-  'libxml2/globals.c',
-  'libxml2/hash.c',
-  'libxml2/list.c',
-  'libxml2/parser.c',
-  'libxml2/parserInternals.c',
-  'libxml2/SAX2.c',
-  'libxml2/threads.c',
-  'libxml2/tree.c',
-  'libxml2/uri.c',
-  'libxml2/valid.c',
-  'libxml2/xmlIO.c',
-  'libxml2/xmlmemory.c',
-  'libxml2/xmlstring.c',
-  'libxml2/xmlsave.c',
-  'libxml2/xmlreader.c',
-  'libxml2/xmlwriter.c',
-)
+  xml2_config_h = configure_file(
+    output: 'xml2-config.h',
+    configuration: xml2_config,
+  )
 
-libxml2_deps = [zlib]
+  libxml2 = static_library('xml2',
+    'libxml2/buf.c',
+    'libxml2/chvalid.c',
+    'libxml2/dict.c',
+    'libxml2/encoding.c',
+    'libxml2/entities.c',
+    'libxml2/error.c',
+    'libxml2/globals.c',
+    'libxml2/hash.c',
+    'libxml2/list.c',
+    'libxml2/parser.c',
+    'libxml2/parserInternals.c',
+    'libxml2/SAX2.c',
+    'libxml2/threads.c',
+    'libxml2/tree.c',
+    'libxml2/uri.c',
+    'libxml2/valid.c',
+    'libxml2/xmlIO.c',
+    'libxml2/xmlmemory.c',
+    'libxml2/xmlstring.c',
+    'libxml2/xmlsave.c',
+    'libxml2/xmlreader.c',
+    'libxml2/xmlwriter.c',
+    xml2_config_h,
+    xml2_version_h,
+    include_directories: include_directories('libxml2', 'libxml2/include'),
+    dependencies: [zlib],
+    c_args: ['-include', meson.project_build_root() / 'xml2-config.h',
+             '-I' + meson.project_build_root()],
+  )
 
-xml2_all_inc_dirs = include_directories(
-  '.',
-  'libxml2',
-  'libxml2/include',
-)
-
-libxml2 = static_library('xml2',
-  libxml2_sources,
-  xml2_config_h,
-  xml2_version_h,
-  include_directories: xml2_all_inc_dirs,
-  dependencies: libxml2_deps,
-  c_args: [
-    '-include', meson.project_build_root() / 'xml2-config.h',
-  ],
-)
-
-libxml = declare_dependency(
-  link_with: libxml2,
-  include_directories: xml2_all_inc_dirs,
-  dependencies: libxml2_deps,
-  sources: xml2_version_h,
-)
+  libxml = declare_dependency(
+    link_with: libxml2,
+    include_directories: include_directories('libxml2', 'libxml2/include'),
+    dependencies: [zlib],
+    compile_args: ['-I' + meson.project_build_root()],
+  )
+else
+  libxml = dependency('libxml-2.0', version: '>= 2.7', static: true)
+endif
 
 bison = find_program('bison')
 

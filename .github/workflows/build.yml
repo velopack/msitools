@@ -34,6 +34,7 @@ jobs:
             ${{ matrix.prefix }}-meson
             ${{ matrix.prefix }}-pkgconf
             ${{ matrix.prefix }}-glib2
+            ${{ matrix.prefix }}-libxml2
             mingw-w64-ucrt-x86_64-vala
             bison
 
@@ -80,13 +81,14 @@ jobs:
             apk add --no-cache \
               gcc musl-dev meson vala bison pkgconf file \
               glib-dev glib-static \
+              libxml2-dev libxml2-static \
               zlib-dev zlib-static \
               pcre2-dev pcre2-static \
               libffi-dev \
               xz-dev xz-static \
               util-linux-dev util-linux-static
             echo "=== Verifying static libs ==="
-            ls /usr/lib/libglib-2.0.a /usr/lib/libgio-2.0.a /usr/lib/libgobject-2.0.a /usr/lib/libz.a /usr/lib/libpcre2-8.a /usr/lib/libffi.a /usr/lib/liblzma.a /usr/lib/libmount.a /usr/lib/libblkid.a
+            ls /usr/lib/libglib-2.0.a /usr/lib/libgio-2.0.a /usr/lib/libgobject-2.0.a /usr/lib/libxml2.a /usr/lib/libz.a /usr/lib/libpcre2-8.a /usr/lib/libffi.a /usr/lib/liblzma.a /usr/lib/libmount.a /usr/lib/libblkid.a
             meson setup builddir --default-library=static --prefer-static
             meson compile -C builddir
             file builddir/wixl
