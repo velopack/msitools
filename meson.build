@@ -440,12 +440,17 @@ msi_interop_sources = [
 
 msi_interop_inc = include_directories('msi-interop')
 
+msi_interop_deps = [glib, gio, gobject, libxml, zlib]
+msi_interop_link_with = []
+msi_interop_link_args = libmsi_shared_link_args
+
 if host_machine.system() == 'linux'
-  msi_interop_deps = libmsi_shared_deps
-  msi_interop_link_with = []
-else
-  msi_interop_deps = [glib, gio, gobject, libxml, zlib]
-  msi_interop_link_with = []
+  # Statically embed all dependencies into libmsi-interop.so so it has no
+  # runtime system library dependencies (other than libc) when loaded via
+  # P/Invoke from C#. This requires PIC-compiled static libs.
+  msi_interop_link_args += [
+    '-Wl,--exclude-libs,ALL',
+  ]
 endif
 
 msi_interop_shared = shared_library('msi-interop',
@@ -455,7 +460,7 @@ msi_interop_shared = shared_library('msi-interop',
   include_directories: [inc_dirs, gsf_inc_dirs, gcab_inc_dirs, msi_interop_inc],
   dependencies: msi_interop_deps,
   link_with: msi_interop_link_with,
-  link_args: libmsi_shared_link_args,
+  link_args: msi_interop_link_args,
   gnu_symbol_visibility: 'hidden',
 )
 
