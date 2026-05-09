@@ -135,6 +135,10 @@ jobs:
           cp builddir/libmsi.a libmsi-linux-${{ matrix.arch }}.a
           cp builddir/libmsi.so libmsi-linux-${{ matrix.arch }}.so
 
+      - name: Collect generated header
+        if: matrix.arch == 'x64'
+        run: cp builddir/libmsi-enums.h libmsi-enums-generated.h
+
       - uses: actions/upload-artifact@v4
         with:
           name: build-linux-${{ matrix.arch }}
@@ -142,6 +146,7 @@ jobs:
             wixl-linux-${{ matrix.arch }}
             libmsi-linux-${{ matrix.arch }}.a
             libmsi-linux-${{ matrix.arch }}.so
+            libmsi-enums-generated.h
           retention-days: 1
 
   macos:
@@ -208,6 +213,10 @@ jobs:
     runs-on: macos-latest
     needs: [windows, linux, macos]
     steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: false
+
       - uses: actions/download-artifact@v4
         with:
           pattern: build-*
@@ -228,21 +237,37 @@ jobs:
           file libmsi-osx-universal.dylib
           rm libmsi-macos-arm64.a libmsi-macos-x64.a libmsi-macos-arm64.dylib libmsi-macos-x64.dylib
 
-      - name: Prepare release directory
+      - name: Package wixl
         run: |
-          mkdir release
-          mv wixl-win-x86.exe release/
-          mv wixl-win-x64.exe release/
-          mv wixl-win-arm64.exe release/
-          mv wixl-linux-x64 release/
-          mv wixl-linux-arm64 release/
-          mv wixl-osx-universal release/
-          mv libmsi-win-* release/
-          mv libmsi-linux-* release/
-          mv libmsi-osx-universal.a libmsi-osx-universal.dylib release/
-          ls -la release/
+          mkdir -p build-wixl
+          mv wixl-win-x86.exe wixl-win-x64.exe wixl-win-arm64.exe build-wixl/
+          mv wixl-linux-x64 wixl-linux-arm64 build-wixl/
+          mv wixl-osx-universal build-wixl/
+          ls -la build-wixl/
+
+      - name: Package libmsi
+        run: |
+          mkdir -p build-libmsi/include build-libmsi/shared build-libmsi/static
+          cp msitools/include/libmsi.h msitools/include/libmsi-database.h \
+             msitools/include/libmsi-query.h msitools/include/libmsi-record.h \
+             msitools/include/libmsi-summary-info.h msitools/include/libmsi-types.h \
+             build-libmsi/include/
+          cp libmsi-enums-generated.h build-libmsi/include/libmsi-enums.h
+          mv libmsi-win-*.dll build-libmsi/shared/
+          mv libmsi-win-*.dll.lib build-libmsi/shared/
+          mv libmsi-linux-*.so build-libmsi/shared/
+          mv libmsi-osx-universal.dylib build-libmsi/shared/
+          mv libmsi-win-*.lib build-libmsi/static/
+          mv libmsi-linux-*.a build-libmsi/static/
+          mv libmsi-osx-universal.a build-libmsi/static/
+          ls -laR build-libmsi/
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wixl
-          path: release/*
+          name: build-wixl
+          path: build-wixl/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-libmsi
+          path: build-libmsi/**/*
