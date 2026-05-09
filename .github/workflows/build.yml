@@ -233,8 +233,8 @@ jobs:
           mv wixl-linux-x64 release/
           mv wixl-linux-arm64 release/
           mv wixl-osx-universal release/
-          mv libmsi-win-*.a libmsi-win-*.dll libmsi-win-*.dll.a release/
-          mv libmsi-linux-*.a libmsi-linux-*.so release/
+          mv libmsi-win-* release/
+          mv libmsi-linux-* release/
           mv libmsi-osx-universal.a libmsi-osx-universal.dylib release/
           ls -la release/
 
