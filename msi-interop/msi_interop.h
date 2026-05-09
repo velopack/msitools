@@ -673,10 +673,12 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiDatabaseMergeA(MSIHANDLE hDatabase, MSIHANDLE 
 MSI_INTEROP_EXPORT UINT WINAPI MsiDatabaseMergeW(MSIHANDLE hDatabase, MSIHANDLE hDatabaseMerge, LPCWSTR szTableName);
 MSI_INTEROP_EXPORT UINT WINAPI MsiDatabaseApplyTransformA(MSIHANDLE hDatabase, LPCSTR szTransformFile, int iErrorConditions);
 MSI_INTEROP_EXPORT UINT WINAPI MsiDatabaseApplyTransformW(MSIHANDLE hDatabase, LPCWSTR szTransformFile, int iErrorConditions);
+/* NOT IMPLEMENTED - Transform generation requires full MSI database comparison
 MSI_INTEROP_EXPORT UINT WINAPI MsiDatabaseGenerateTransformA(MSIHANDLE hDatabase, MSIHANDLE hDatabaseReference, LPCSTR szTransformFile, int iReserved1, int iReserved2);
 MSI_INTEROP_EXPORT UINT WINAPI MsiDatabaseGenerateTransformW(MSIHANDLE hDatabase, MSIHANDLE hDatabaseReference, LPCWSTR szTransformFile, int iReserved1, int iReserved2);
 MSI_INTEROP_EXPORT UINT WINAPI MsiCreateTransformSummaryInfoA(MSIHANDLE hDatabase, MSIHANDLE hDatabaseReference, LPCSTR szTransformFile, int iErrorConditions, int iValidation);
 MSI_INTEROP_EXPORT UINT WINAPI MsiCreateTransformSummaryInfoW(MSIHANDLE hDatabase, MSIHANDLE hDatabaseReference, LPCWSTR szTransformFile, int iErrorConditions, int iValidation);
+*/
 
 /* ========================================================================== */
 /* View functions                                                             */

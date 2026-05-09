@@ -479,63 +479,6 @@ MsiDatabaseApplyTransformW(MSIHANDLE hDatabase, LPCWSTR szTransformFile,
     return ret;
 }
 
-/* -------------------------------------------------------------------------- */
-/* MsiDatabaseGenerateTransform (stub)                                        */
-/* -------------------------------------------------------------------------- */
-
-UINT WINAPI
-MsiDatabaseGenerateTransformA(MSIHANDLE hDatabase, MSIHANDLE hDatabaseReference,
-                              LPCSTR szTransformFile, int iReserved1, int iReserved2)
-{
-    (void)hDatabase;
-    (void)hDatabaseReference;
-    (void)szTransformFile;
-    (void)iReserved1;
-    (void)iReserved2;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-UINT WINAPI
-MsiDatabaseGenerateTransformW(MSIHANDLE hDatabase, MSIHANDLE hDatabaseReference,
-                              LPCWSTR szTransformFile, int iReserved1, int iReserved2)
-{
-    (void)hDatabase;
-    (void)hDatabaseReference;
-    (void)szTransformFile;
-    (void)iReserved1;
-    (void)iReserved2;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-/* -------------------------------------------------------------------------- */
-/* MsiCreateTransformSummaryInfo (stub)                                       */
-/* -------------------------------------------------------------------------- */
-
-UINT WINAPI
-MsiCreateTransformSummaryInfoA(MSIHANDLE hDatabase, MSIHANDLE hDatabaseReference,
-                               LPCSTR szTransformFile, int iErrorConditions,
-                               int iValidation)
-{
-    (void)hDatabase;
-    (void)hDatabaseReference;
-    (void)szTransformFile;
-    (void)iErrorConditions;
-    (void)iValidation;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-UINT WINAPI
-MsiCreateTransformSummaryInfoW(MSIHANDLE hDatabase, MSIHANDLE hDatabaseReference,
-                               LPCWSTR szTransformFile, int iErrorConditions,
-                               int iValidation)
-{
-    (void)hDatabase;
-    (void)hDatabaseReference;
-    (void)szTransformFile;
-    (void)iErrorConditions;
-    (void)iValidation;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
 
 /* -------------------------------------------------------------------------- */
 /* MsiVerifyPackage                                                           */
