@@ -46,8 +46,18 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: wixl
-          path: release
+          name: build-wixl
+          path: wixl
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-libmsi
+          path: libmsi
+
+      - name: Create release archives
+        run: |
+          zip -r wixl.zip wixl/
+          zip -r libmsi.zip libmsi/
 
       - name: Create GitHub Release
         env:
@@ -57,9 +67,5 @@ jobs:
             --target "${{ github.sha }}" \
             --title "${{ steps.version.outputs.version }}" \
             --generate-notes \
-            release/wixl-win-x86.exe \
-            release/wixl-win-x64.exe \
-            release/wixl-win-arm64.exe \
-            release/wixl-linux-x64 \
-            release/wixl-linux-arm64 \
-            release/wixl-osx-universal
+            wixl.zip \
+            libmsi.zip

@@ -120,6 +120,7 @@ if host_machine.system() == 'darwin'
     dependencies: [zlib],
     c_args: ['-include', meson.project_build_root() / 'xml2-config.h',
              '-I' + meson.project_build_root()],
+    pic: true,
   )
 
   libxml = declare_dependency(
@@ -237,6 +238,7 @@ libgsf = static_library('gsf-1',
     '-DG_LOG_DOMAIN="libgsf"',
     '-DGSF_DISABLE_DEPRECATED',
   ],
+  pic: true,
 )
 
 libgsf_dep = declare_dependency(
@@ -344,12 +346,48 @@ libmsi = static_library('msi-1.0',
   include_directories: inc_dirs,
   dependencies: libmsi_deps,
   c_args: ['-include', meson.project_build_root() / 'config.h'],
+  pic: true,
 )
 
 libmsi_dep = declare_dependency(
   link_with: libmsi,
   include_directories: inc_dirs,
   dependencies: libmsi_deps,
+)
+
+# --- libmsi shared library ---
+libmsi_shared_link_args = []
+if host_machine.system() == 'windows'
+  libmsi_shared_link_args = [
+    '-lws2_32', '-lole32', '-lshell32', '-lshlwapi',
+    '-ladvapi32', '-luserenv', '-liphlpapi', '-ldnsapi',
+    '-lbcrypt',
+  ]
+elif host_machine.system() == 'darwin'
+  libmsi_shared_link_args = [
+    '-framework', 'CoreFoundation',
+    '-framework', 'Foundation',
+    '-framework', 'AppKit',
+    '-framework', 'Carbon',
+  ]
+endif
+
+if host_machine.system() == 'linux'
+  libmsi_shared_deps = [
+    dependency('glib-2.0',    static: false),
+    dependency('gio-2.0',     static: false),
+    dependency('gobject-2.0', static: false),
+    dependency('libxml-2.0',  static: false),
+    dependency('zlib',        static: false),
+  ]
+else
+  libmsi_shared_deps = [glib, gio, gobject, libxml, zlib]
+endif
+
+libmsi_shared = shared_library('msi',
+  objects: [libmsi.extract_all_objects(), libgsf.extract_all_objects()],
+  dependencies: libmsi_shared_deps,
+  link_args: libmsi_shared_link_args,
 )
 
 # --- Platform-specific dependencies and link args ---
