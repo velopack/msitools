@@ -390,32 +390,6 @@ libmsi_shared = shared_library('msi',
   link_args: libmsi_shared_link_args,
 )
 
-# --- msi-interop shared library (Win32 MSI API compatibility layer) ---
-msi_interop_sources = [
-  'msi-interop/handle_table.c',
-  'msi-interop/string_utils.c',
-  'msi-interop/database.c',
-  'msi-interop/query.c',
-  'msi-interop/record.c',
-  'msi-interop/summary.c',
-  'msi-interop/file_utils.c',
-]
-
-msi_interop_inc = include_directories('msi-interop')
-
-msi_interop_deps = [glib, gio, gobject, libxml, zlib]
-msi_interop_link_args = libmsi_shared_link_args
-
-msi_interop_shared = shared_library('msi-interop',
-  msi_interop_sources,
-  libmsi_enums[1],
-  objects: [libmsi.extract_all_objects(), libgsf.extract_all_objects()],
-  include_directories: [inc_dirs, gsf_inc_dirs, msi_interop_inc],
-  dependencies: msi_interop_deps,
-  link_args: msi_interop_link_args,
-  gnu_symbol_visibility: 'hidden',
-)
-
 # --- Platform-specific dependencies and link args ---
 platform_link_deps = []
 
@@ -431,6 +405,7 @@ if host_machine.system() == 'linux'
     'libeconf/lib/mergefiles.c',
     'libeconf/lib/readconfig.c',
     include_directories: include_directories('libeconf/include', 'libeconf/lib'),
+    pic: true,
   )
   platform_link_deps = [libeconf]
   platform_link_args = ['-static']
@@ -450,6 +425,36 @@ elif host_machine.system() == 'windows'
 else
   platform_link_args = []
 endif
+
+# --- msi-interop shared library (Win32 MSI API compatibility layer) ---
+msi_interop_sources = [
+  'msi-interop/handle_table.c',
+  'msi-interop/string_utils.c',
+  'msi-interop/database.c',
+  'msi-interop/query.c',
+  'msi-interop/record.c',
+  'msi-interop/summary.c',
+  'msi-interop/file_utils.c',
+]
+
+msi_interop_inc = include_directories('msi-interop')
+
+msi_interop_deps = [glib, gio, gobject, libxml, zlib]
+msi_interop_link_with = []
+if host_machine.system() == 'linux'
+  msi_interop_link_with = [libeconf]
+endif
+
+msi_interop_shared = shared_library('msi-interop',
+  msi_interop_sources,
+  libmsi_enums[1],
+  objects: [libmsi.extract_all_objects(), libgsf.extract_all_objects()],
+  include_directories: [inc_dirs, gsf_inc_dirs, msi_interop_inc],
+  dependencies: msi_interop_deps,
+  link_with: msi_interop_link_with,
+  link_args: libmsi_shared_link_args,
+  gnu_symbol_visibility: 'hidden',
+)
 
 # --- wixl common library (util.vala) ---
 libcommon = static_library('common',
