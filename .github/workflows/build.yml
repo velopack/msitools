@@ -65,10 +65,21 @@ jobs:
       - name: Rename binary
         run: copy builddir\wixl.exe wixl-win-${{ matrix.arch }}.exe
 
+      - name: Collect libmsi artifacts
+        shell: msys2 {0}
+        run: |
+          cp builddir/libmsi-1.0.a libmsi-win-${{ matrix.arch }}.a
+          cp builddir/libmsi.dll libmsi-win-${{ matrix.arch }}.dll
+          cp builddir/libmsi.dll.a libmsi-win-${{ matrix.arch }}.dll.a
+
       - uses: actions/upload-artifact@v4
         with:
           name: build-win-${{ matrix.arch }}
-          path: wixl-win-${{ matrix.arch }}.exe
+          path: |
+            wixl-win-${{ matrix.arch }}.exe
+            libmsi-win-${{ matrix.arch }}.a
+            libmsi-win-${{ matrix.arch }}.dll
+            libmsi-win-${{ matrix.arch }}.dll.a
           retention-days: 1
 
   linux:
@@ -107,15 +118,26 @@ jobs:
             file builddir/wixl
             ldd builddir/wixl || echo "statically linked"
             builddir/wixl --version
+            echo "=== libmsi shared library ==="
+            file builddir/libmsi.so
+            ls -lh builddir/libmsi.so
           '
 
       - name: Rename binary
         run: cp builddir/wixl wixl-linux-${{ matrix.arch }}
 
+      - name: Collect libmsi artifacts
+        run: |
+          cp builddir/libmsi-1.0.a libmsi-linux-${{ matrix.arch }}.a
+          cp builddir/libmsi.so libmsi-linux-${{ matrix.arch }}.so
+
       - uses: actions/upload-artifact@v4
         with:
           name: build-linux-${{ matrix.arch }}
-          path: wixl-linux-${{ matrix.arch }}
+          path: |
+            wixl-linux-${{ matrix.arch }}
+            libmsi-linux-${{ matrix.arch }}.a
+            libmsi-linux-${{ matrix.arch }}.so
           retention-days: 1
 
   macos:
@@ -156,14 +178,26 @@ jobs:
             echo "ERROR: Found non-system dynamic dependencies!"
             exit 1
           fi
+          echo "=== libmsi shared library ==="
+          file builddir/libmsi.dylib
+          otool -L builddir/libmsi.dylib
+          ls -lh builddir/libmsi.dylib
 
       - name: Rename binary
         run: cp builddir/wixl wixl-macos-${{ matrix.arch }}
 
+      - name: Collect libmsi artifacts
+        run: |
+          cp builddir/libmsi-1.0.a libmsi-macos-${{ matrix.arch }}.a
+          cp builddir/libmsi.dylib libmsi-macos-${{ matrix.arch }}.dylib
+
       - uses: actions/upload-artifact@v4
         with:
           name: build-macos-${{ matrix.arch }}
-          path: wixl-macos-${{ matrix.arch }}
+          path: |
+            wixl-macos-${{ matrix.arch }}
+            libmsi-macos-${{ matrix.arch }}.a
+            libmsi-macos-${{ matrix.arch }}.dylib
           retention-days: 1
 
   package:
@@ -182,6 +216,14 @@ jobs:
           file wixl-osx-universal
           rm wixl-macos-arm64 wixl-macos-x64
 
+      - name: Create macOS universal libmsi
+        run: |
+          lipo -create libmsi-macos-arm64.a libmsi-macos-x64.a -output libmsi-osx-universal.a
+          lipo -create libmsi-macos-arm64.dylib libmsi-macos-x64.dylib -output libmsi-osx-universal.dylib
+          file libmsi-osx-universal.a
+          file libmsi-osx-universal.dylib
+          rm libmsi-macos-arm64.a libmsi-macos-x64.a libmsi-macos-arm64.dylib libmsi-macos-x64.dylib
+
       - name: Prepare release directory
         run: |
           mkdir release
@@ -191,6 +233,9 @@ jobs:
           mv wixl-linux-x64 release/
           mv wixl-linux-arm64 release/
           mv wixl-osx-universal release/
+          mv libmsi-win-*.a libmsi-win-*.dll libmsi-win-*.dll.a release/
+          mv libmsi-linux-*.a libmsi-linux-*.so release/
+          mv libmsi-osx-universal.a libmsi-osx-universal.dylib release/
           ls -la release/
 
       - uses: actions/upload-artifact@v4
