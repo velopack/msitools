@@ -54,10 +54,16 @@ jobs:
           name: build-libmsi
           path: libmsi
 
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-msi-interop
+          path: msi-interop
+
       - name: Create release archives
         run: |
           zip -r wixl.zip wixl/
           zip -r libmsi.zip libmsi/
+          zip -r msi-interop.zip msi-interop/
 
       - name: Create GitHub Release
         env:
@@ -68,4 +74,5 @@ jobs:
             --title "${{ steps.version.outputs.version }}" \
             --generate-notes \
             wixl.zip \
-            libmsi.zip
+            libmsi.zip \
+            msi-interop.zip

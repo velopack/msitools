@@ -73,6 +73,12 @@ jobs:
           cp builddir/libmsi.dll libmsi-win-${{ matrix.arch }}.dll
           cp builddir/libmsi.dll.a libmsi-win-${{ matrix.arch }}.dll.lib
 
+      - name: Collect msi-interop artifacts
+        shell: msys2 {0}
+        run: |
+          cp builddir/libmsi-interop.dll msi-interop-win-${{ matrix.arch }}.dll
+          cp builddir/libmsi-interop.dll.a msi-interop-win-${{ matrix.arch }}.dll.lib || true
+
       - uses: actions/upload-artifact@v4
         with:
           name: build-win-${{ matrix.arch }}
@@ -81,6 +87,8 @@ jobs:
             libmsi-win-${{ matrix.arch }}.lib
             libmsi-win-${{ matrix.arch }}.dll
             libmsi-win-${{ matrix.arch }}.dll.lib
+            msi-interop-win-${{ matrix.arch }}.dll
+            msi-interop-win-${{ matrix.arch }}.dll.lib
           retention-days: 1
 
   linux:
@@ -135,6 +143,10 @@ jobs:
           cp builddir/libmsi.a libmsi-linux-${{ matrix.arch }}.a
           cp builddir/libmsi.so libmsi-linux-${{ matrix.arch }}.so
 
+      - name: Collect msi-interop artifacts
+        run: |
+          cp builddir/libmsi-interop.so msi-interop-linux-${{ matrix.arch }}.so
+
       - name: Collect generated header
         if: matrix.arch == 'x64'
         run: cp builddir/libmsi-enums.h libmsi-enums-generated.h
@@ -146,6 +158,7 @@ jobs:
             wixl-linux-${{ matrix.arch }}
             libmsi-linux-${{ matrix.arch }}.a
             libmsi-linux-${{ matrix.arch }}.so
+            msi-interop-linux-${{ matrix.arch }}.so
             libmsi-enums-generated.h
           retention-days: 1
 
@@ -200,6 +213,10 @@ jobs:
           cp builddir/libmsi-1.0.a libmsi-macos-${{ matrix.arch }}.a
           cp builddir/libmsi.dylib libmsi-macos-${{ matrix.arch }}.dylib
 
+      - name: Collect msi-interop artifacts
+        run: |
+          cp builddir/libmsi-interop.dylib msi-interop-macos-${{ matrix.arch }}.dylib
+
       - uses: actions/upload-artifact@v4
         with:
           name: build-macos-${{ matrix.arch }}
@@ -207,6 +224,7 @@ jobs:
             wixl-macos-${{ matrix.arch }}
             libmsi-macos-${{ matrix.arch }}.a
             libmsi-macos-${{ matrix.arch }}.dylib
+            msi-interop-macos-${{ matrix.arch }}.dylib
           retention-days: 1
 
   package:
@@ -235,6 +253,12 @@ jobs:
           file libmsi-osx-universal.dylib
           rm libmsi-macos-arm64.dylib libmsi-macos-x64.dylib
 
+      - name: Create macOS universal msi-interop dylib
+        run: |
+          lipo -create msi-interop-macos-arm64.dylib msi-interop-macos-x64.dylib -output msi-interop-osx-universal.dylib
+          file msi-interop-osx-universal.dylib
+          rm msi-interop-macos-arm64.dylib msi-interop-macos-x64.dylib
+
       - name: Package wixl
         run: |
           mkdir -p build-wixl
@@ -260,6 +284,16 @@ jobs:
           mv libmsi-macos-arm64.a libmsi-macos-x64.a build-libmsi/static/
           ls -laR build-libmsi/
 
+      - name: Package msi-interop
+        run: |
+          mkdir -p build-msi-interop/include build-msi-interop/shared
+          cp msi-interop/msi_interop.h msi-interop/msi_cab.h build-msi-interop/include/
+          mv msi-interop-win-*.dll build-msi-interop/shared/
+          mv msi-interop-win-*.dll.lib build-msi-interop/shared/
+          mv msi-interop-linux-*.so build-msi-interop/shared/
+          mv msi-interop-osx-universal.dylib build-msi-interop/shared/
+          ls -laR build-msi-interop/
+
       - uses: actions/upload-artifact@v4
         with:
           name: build-wixl
@@ -269,3 +303,8 @@ jobs:
         with:
           name: build-libmsi
           path: build-libmsi/**/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-msi-interop
+          path: build-msi-interop/**/*
