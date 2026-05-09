@@ -372,9 +372,21 @@ elif host_machine.system() == 'darwin'
   ]
 endif
 
+if host_machine.system() == 'linux'
+  libmsi_shared_deps = [
+    dependency('glib-2.0',    static: false),
+    dependency('gio-2.0',     static: false),
+    dependency('gobject-2.0', static: false),
+    dependency('libxml-2.0',  static: false),
+    dependency('zlib',        static: false),
+  ]
+else
+  libmsi_shared_deps = [glib, gio, gobject, libxml, zlib]
+endif
+
 libmsi_shared = shared_library('msi',
   link_whole: [libmsi, libgsf],
-  dependencies: [glib, gio, gobject, libxml, zlib],
+  dependencies: libmsi_shared_deps,
   link_args: libmsi_shared_link_args,
 )
 
