@@ -52,7 +52,7 @@ utf8_to_utf16(const char *utf8, size_t *out_len)
 }
 
 unsigned int
-copy_string_to_bufA(const char *str, char *buf, unsigned long *pcch)
+copy_string_to_bufA(const char *str, char *buf, DWORD *pcch)
 {
     if (str == NULL)
         str = "";
@@ -103,7 +103,7 @@ copy_string_to_bufA(const char *str, char *buf, unsigned long *pcch)
 }
 
 unsigned int
-copy_string_to_bufW(const char *str, WCHAR *buf, unsigned long *pcch)
+copy_string_to_bufW(const char *str, WCHAR *buf, DWORD *pcch)
 {
     if (str == NULL)
         str = "";

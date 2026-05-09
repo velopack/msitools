@@ -736,21 +736,70 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiVerifyPackageA(LPCSTR szPackagePath);
 MSI_INTEROP_EXPORT UINT WINAPI MsiVerifyPackageW(LPCWSTR szPackagePath);
 
 /* ========================================================================== */
-/* Stub functions - Installer service (Msi.h)                                 */
+/* File utility functions                                                     */
 /* ========================================================================== */
 
+MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileVersionA(LPCSTR szFilePath, LPSTR lpVersionBuf, LPDWORD pcchVersionBuf, LPSTR lpLangBuf, LPDWORD pcchLangBuf);
+MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileVersionW(LPCWSTR szFilePath, LPWSTR lpVersionBuf, LPDWORD pcchVersionBuf, LPWSTR lpLangBuf, LPDWORD pcchLangBuf);
+MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileHashA(LPCSTR szFilePath, DWORD dwOptions, PMSIFILEHASHINFO pHash);
+MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileHashW(LPCWSTR szFilePath, DWORD dwOptions, PMSIFILEHASHINFO pHash);
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - UI / Logging                                             */
+/* Requires Windows Installer Service                                         */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT INSTALLUILEVEL WINAPI MsiSetInternalUI(INSTALLUILEVEL dwUILevel, HWND *phWnd);
 MSI_INTEROP_EXPORT INSTALLUI_HANDLERA WINAPI MsiSetExternalUIA(INSTALLUI_HANDLERA puiHandler, DWORD dwMessageFilter, LPVOID pvContext);
 MSI_INTEROP_EXPORT INSTALLUI_HANDLERW WINAPI MsiSetExternalUIW(INSTALLUI_HANDLERW puiHandler, DWORD dwMessageFilter, LPVOID pvContext);
 MSI_INTEROP_EXPORT UINT WINAPI MsiSetExternalUIRecord(INSTALLUI_HANDLER_RECORD puiHandler, DWORD dwMessageFilter, LPVOID pvContext, PINSTALLUI_HANDLER_RECORD ppuiPrevHandler);
 MSI_INTEROP_EXPORT UINT WINAPI MsiEnableLogA(DWORD dwLogMode, LPCSTR szLogFile, DWORD dwLogAttributes);
 MSI_INTEROP_EXPORT UINT WINAPI MsiEnableLogW(DWORD dwLogMode, LPCWSTR szLogFile, DWORD dwLogAttributes);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Product / Feature / Component state queries              */
+/* Requires Windows Installer Service                                         */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiQueryProductStateA(LPCSTR szProduct);
 MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiQueryProductStateW(LPCWSTR szProduct);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetProductInfoA(LPCSTR szProduct, LPCSTR szAttribute, LPSTR lpValueBuf, LPDWORD pcchValueBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetProductInfoW(LPCWSTR szProduct, LPCWSTR szAttribute, LPWSTR lpValueBuf, LPDWORD pcchValueBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetProductInfoExA(LPCSTR szProductCode, LPCSTR szUserSid, MSIINSTALLCONTEXT dwContext, LPCSTR szProperty, LPSTR szValue, LPDWORD pcchValue);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetProductInfoExW(LPCWSTR szProductCode, LPCWSTR szUserSid, MSIINSTALLCONTEXT dwContext, LPCWSTR szProperty, LPWSTR szValue, LPDWORD pcchValue);
+MSI_INTEROP_EXPORT UINT WINAPI MsiGetProductCodeA(LPCSTR szComponent, LPSTR lpBuf39);
+MSI_INTEROP_EXPORT UINT WINAPI MsiGetProductCodeW(LPCWSTR szComponent, LPWSTR lpBuf39);
+MSI_INTEROP_EXPORT USERINFOSTATE WINAPI MsiGetUserInfoA(LPCSTR szProduct, LPSTR lpUserNameBuf, LPDWORD pcchUserNameBuf, LPSTR lpOrgNameBuf, LPDWORD pcchOrgNameBuf, LPSTR lpSerialBuf, LPDWORD pcchSerialBuf);
+MSI_INTEROP_EXPORT USERINFOSTATE WINAPI MsiGetUserInfoW(LPCWSTR szProduct, LPWSTR lpUserNameBuf, LPDWORD pcchUserNameBuf, LPWSTR lpOrgNameBuf, LPDWORD pcchOrgNameBuf, LPWSTR lpSerialBuf, LPDWORD pcchSerialBuf);
+MSI_INTEROP_EXPORT UINT WINAPI MsiCollectUserInfoA(LPCSTR szProduct);
+MSI_INTEROP_EXPORT UINT WINAPI MsiCollectUserInfoW(LPCWSTR szProduct);
+MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiQueryFeatureStateA(LPCSTR szProduct, LPCSTR szFeature);
+MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiQueryFeatureStateW(LPCWSTR szProduct, LPCWSTR szFeature);
+MSI_INTEROP_EXPORT UINT WINAPI MsiQueryFeatureStateExA(LPCSTR szProductCode, LPCSTR szUserSid, MSIINSTALLCONTEXT dwContext, LPCSTR szFeature, INSTALLSTATE *pdwState);
+MSI_INTEROP_EXPORT UINT WINAPI MsiQueryFeatureStateExW(LPCWSTR szProductCode, LPCWSTR szUserSid, MSIINSTALLCONTEXT dwContext, LPCWSTR szFeature, INSTALLSTATE *pdwState);
+MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiUseFeatureA(LPCSTR szProduct, LPCSTR szFeature);
+MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiUseFeatureW(LPCWSTR szProduct, LPCWSTR szFeature);
+MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiUseFeatureExA(LPCSTR szProduct, LPCSTR szFeature, DWORD dwInstallMode, DWORD dwReserved);
+MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiUseFeatureExW(LPCWSTR szProduct, LPCWSTR szFeature, DWORD dwInstallMode, DWORD dwReserved);
+MSI_INTEROP_EXPORT UINT WINAPI MsiGetFeatureUsageA(LPCSTR szProduct, LPCSTR szFeature, LPDWORD pdwUseCount, LPWORD pwDateUsed);
+MSI_INTEROP_EXPORT UINT WINAPI MsiGetFeatureUsageW(LPCWSTR szProduct, LPCWSTR szFeature, LPDWORD pdwUseCount, LPWORD pwDateUsed);
+MSI_INTEROP_EXPORT UINT WINAPI MsiConfigureFeatureA(LPCSTR szProduct, LPCSTR szFeature, INSTALLSTATE eInstallState);
+MSI_INTEROP_EXPORT UINT WINAPI MsiConfigureFeatureW(LPCWSTR szProduct, LPCWSTR szFeature, INSTALLSTATE eInstallState);
+MSI_INTEROP_EXPORT UINT WINAPI MsiReinstallFeatureA(LPCSTR szProduct, LPCSTR szFeature, DWORD dwReinstallMode);
+MSI_INTEROP_EXPORT UINT WINAPI MsiReinstallFeatureW(LPCWSTR szProduct, LPCWSTR szFeature, DWORD dwReinstallMode);
+MSI_INTEROP_EXPORT UINT WINAPI MsiQueryComponentStateA(LPCSTR szProductCode, LPCSTR szUserSid, MSIINSTALLCONTEXT dwContext, LPCSTR szComponentCode, INSTALLSTATE *pdwState);
+MSI_INTEROP_EXPORT UINT WINAPI MsiQueryComponentStateW(LPCWSTR szProductCode, LPCWSTR szUserSid, MSIINSTALLCONTEXT dwContext, LPCWSTR szComponentCode, INSTALLSTATE *pdwState);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Installation / Configuration                             */
+/* Requires Windows Installer Service                                         */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT UINT WINAPI MsiInstallProductA(LPCSTR szPackagePath, LPCSTR szCommandLine);
 MSI_INTEROP_EXPORT UINT WINAPI MsiInstallProductW(LPCWSTR szPackagePath, LPCWSTR szCommandLine);
 MSI_INTEROP_EXPORT UINT WINAPI MsiConfigureProductA(LPCSTR szProduct, int iInstallLevel, INSTALLSTATE eInstallState);
@@ -759,6 +808,18 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiConfigureProductExA(LPCSTR szProduct, int iIns
 MSI_INTEROP_EXPORT UINT WINAPI MsiConfigureProductExW(LPCWSTR szProduct, int iInstallLevel, INSTALLSTATE eInstallState, LPCWSTR szCommandLine);
 MSI_INTEROP_EXPORT UINT WINAPI MsiReinstallProductA(LPCSTR szProduct, DWORD szReinstallMode);
 MSI_INTEROP_EXPORT UINT WINAPI MsiReinstallProductW(LPCWSTR szProduct, DWORD szReinstallMode);
+MSI_INTEROP_EXPORT UINT WINAPI MsiInstallMissingComponentA(LPCSTR szProduct, LPCSTR szComponent, INSTALLSTATE eInstallState);
+MSI_INTEROP_EXPORT UINT WINAPI MsiInstallMissingComponentW(LPCWSTR szProduct, LPCWSTR szComponent, INSTALLSTATE eInstallState);
+MSI_INTEROP_EXPORT UINT WINAPI MsiInstallMissingFileA(LPCSTR szProduct, LPCSTR szFile);
+MSI_INTEROP_EXPORT UINT WINAPI MsiInstallMissingFileW(LPCWSTR szProduct, LPCWSTR szFile);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Advertising                                              */
+/* Requires Windows Installer Service                                         */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT UINT WINAPI MsiAdvertiseProductA(LPCSTR szPackagePath, LPCSTR szScriptfilePath, LPCSTR szTransforms, LANGID lgidLanguage);
 MSI_INTEROP_EXPORT UINT WINAPI MsiAdvertiseProductW(LPCWSTR szPackagePath, LPCWSTR szScriptfilePath, LPCWSTR szTransforms, LANGID lgidLanguage);
 MSI_INTEROP_EXPORT UINT WINAPI MsiAdvertiseProductExA(LPCSTR szPackagePath, LPCSTR szScriptfilePath, LPCSTR szTransforms, LANGID lgidLanguage, DWORD dwPlatform, DWORD dwOptions);
@@ -769,12 +830,14 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiAdvertiseScriptA(LPCSTR szScriptFile, DWORD dw
 MSI_INTEROP_EXPORT UINT WINAPI MsiAdvertiseScriptW(LPCWSTR szScriptFile, DWORD dwFlags, PHKEY phRegData, BOOL fRemoveItems);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetProductInfoFromScriptA(LPCSTR szScriptFile, LPSTR lpProductBuf39, LPWORD plgidLanguage, LPDWORD pdwVersion, LPSTR lpNameBuf, LPDWORD pcchNameBuf, LPSTR lpPackageBuf, LPDWORD pcchPackageBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetProductInfoFromScriptW(LPCWSTR szScriptFile, LPWSTR lpProductBuf39, LPWORD plgidLanguage, LPDWORD pdwVersion, LPWSTR lpNameBuf, LPDWORD pcchNameBuf, LPWSTR lpPackageBuf, LPDWORD pcchPackageBuf);
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetProductCodeA(LPCSTR szComponent, LPSTR lpBuf39);
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetProductCodeW(LPCWSTR szComponent, LPWSTR lpBuf39);
-MSI_INTEROP_EXPORT USERINFOSTATE WINAPI MsiGetUserInfoA(LPCSTR szProduct, LPSTR lpUserNameBuf, LPDWORD pcchUserNameBuf, LPSTR lpOrgNameBuf, LPDWORD pcchOrgNameBuf, LPSTR lpSerialBuf, LPDWORD pcchSerialBuf);
-MSI_INTEROP_EXPORT USERINFOSTATE WINAPI MsiGetUserInfoW(LPCWSTR szProduct, LPWSTR lpUserNameBuf, LPDWORD pcchUserNameBuf, LPWSTR lpOrgNameBuf, LPDWORD pcchOrgNameBuf, LPWSTR lpSerialBuf, LPDWORD pcchSerialBuf);
-MSI_INTEROP_EXPORT UINT WINAPI MsiCollectUserInfoA(LPCSTR szProduct);
-MSI_INTEROP_EXPORT UINT WINAPI MsiCollectUserInfoW(LPCWSTR szProduct);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Patch management                                         */
+/* Requires Windows Installer Service                                         */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT UINT WINAPI MsiApplyPatchA(LPCSTR szPatchPackage, LPCSTR szInstallPackage, INSTALLTYPE eInstallType, LPCSTR szCommandLine);
 MSI_INTEROP_EXPORT UINT WINAPI MsiApplyPatchW(LPCWSTR szPatchPackage, LPCWSTR szInstallPackage, INSTALLTYPE eInstallType, LPCWSTR szCommandLine);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetPatchInfoA(LPCSTR szPatch, LPCSTR szAttribute, LPSTR lpValueBuf, LPDWORD pcchValueBuf);
@@ -795,20 +858,16 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiDetermineApplicablePatchesA(LPCSTR szProductPa
 MSI_INTEROP_EXPORT UINT WINAPI MsiDetermineApplicablePatchesW(LPCWSTR szProductPackagePath, DWORD cPatchInfo, PMSIPATCHSEQUENCEINFOW pPatchInfo);
 MSI_INTEROP_EXPORT UINT WINAPI MsiEnumPatchesExA(LPCSTR szProductCode, LPCSTR szUserSid, DWORD dwContext, DWORD dwFilter, DWORD dwIndex, LPSTR szPatchCode, LPSTR szTargetProductCode, MSIINSTALLCONTEXT *pdwTargetProductContext, LPSTR szTargetUserSid, LPDWORD pcchTargetUserSid);
 MSI_INTEROP_EXPORT UINT WINAPI MsiEnumPatchesExW(LPCWSTR szProductCode, LPCWSTR szUserSid, DWORD dwContext, DWORD dwFilter, DWORD dwIndex, LPWSTR szPatchCode, LPWSTR szTargetProductCode, MSIINSTALLCONTEXT *pdwTargetProductContext, LPWSTR szTargetUserSid, LPDWORD pcchTargetUserSid);
-MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiQueryFeatureStateA(LPCSTR szProduct, LPCSTR szFeature);
-MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiQueryFeatureStateW(LPCWSTR szProduct, LPCWSTR szFeature);
-MSI_INTEROP_EXPORT UINT WINAPI MsiQueryFeatureStateExA(LPCSTR szProductCode, LPCSTR szUserSid, MSIINSTALLCONTEXT dwContext, LPCSTR szFeature, INSTALLSTATE *pdwState);
-MSI_INTEROP_EXPORT UINT WINAPI MsiQueryFeatureStateExW(LPCWSTR szProductCode, LPCWSTR szUserSid, MSIINSTALLCONTEXT dwContext, LPCWSTR szFeature, INSTALLSTATE *pdwState);
-MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiUseFeatureA(LPCSTR szProduct, LPCSTR szFeature);
-MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiUseFeatureW(LPCWSTR szProduct, LPCWSTR szFeature);
-MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiUseFeatureExA(LPCSTR szProduct, LPCSTR szFeature, DWORD dwInstallMode, DWORD dwReserved);
-MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiUseFeatureExW(LPCWSTR szProduct, LPCWSTR szFeature, DWORD dwInstallMode, DWORD dwReserved);
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetFeatureUsageA(LPCSTR szProduct, LPCSTR szFeature, LPDWORD pdwUseCount, LPWORD pwDateUsed);
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetFeatureUsageW(LPCWSTR szProduct, LPCWSTR szFeature, LPDWORD pdwUseCount, LPWORD pwDateUsed);
-MSI_INTEROP_EXPORT UINT WINAPI MsiConfigureFeatureA(LPCSTR szProduct, LPCSTR szFeature, INSTALLSTATE eInstallState);
-MSI_INTEROP_EXPORT UINT WINAPI MsiConfigureFeatureW(LPCWSTR szProduct, LPCWSTR szFeature, INSTALLSTATE eInstallState);
-MSI_INTEROP_EXPORT UINT WINAPI MsiReinstallFeatureA(LPCSTR szProduct, LPCSTR szFeature, DWORD dwReinstallMode);
-MSI_INTEROP_EXPORT UINT WINAPI MsiReinstallFeatureW(LPCWSTR szProduct, LPCWSTR szFeature, DWORD dwReinstallMode);
+MSI_INTEROP_EXPORT UINT WINAPI MsiGetPatchFileListA(LPCSTR szProductCode, LPCSTR szPatchPackages, LPDWORD pcFiles, MSIHANDLE **pphFileRecords);
+MSI_INTEROP_EXPORT UINT WINAPI MsiGetPatchFileListW(LPCWSTR szProductCode, LPCWSTR szPatchPackages, LPDWORD pcFiles, MSIHANDLE **pphFileRecords);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Component provisioning / location                        */
+/* Requires Windows Installer Service                                         */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT UINT WINAPI MsiProvideComponentA(LPCSTR szProduct, LPCSTR szFeature, LPCSTR szComponent, DWORD dwInstallMode, LPSTR lpPathBuf, LPDWORD pcchPathBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiProvideComponentW(LPCWSTR szProduct, LPCWSTR szFeature, LPCWSTR szComponent, DWORD dwInstallMode, LPWSTR lpPathBuf, LPDWORD pcchPathBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiProvideQualifiedComponentA(LPCSTR szCategory, LPCSTR szQualifier, DWORD dwInstallMode, LPSTR lpPathBuf, LPDWORD pcchPathBuf);
@@ -821,8 +880,16 @@ MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiGetComponentPathExA(LPCSTR szProductCo
 MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiGetComponentPathExW(LPCWSTR szProductCode, LPCWSTR szComponentCode, LPCWSTR szUserSid, MSIINSTALLCONTEXT dwContext, LPWSTR lpOutPathBuf, LPDWORD pcchOutPathBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiProvideAssemblyA(LPCSTR szAssemblyName, LPCSTR szAppContext, DWORD dwInstallMode, DWORD dwAssemblyInfo, LPSTR lpPathBuf, LPDWORD pcchPathBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiProvideAssemblyW(LPCWSTR szAssemblyName, LPCWSTR szAppContext, DWORD dwInstallMode, DWORD dwAssemblyInfo, LPWSTR lpPathBuf, LPDWORD pcchPathBuf);
-MSI_INTEROP_EXPORT UINT WINAPI MsiQueryComponentStateA(LPCSTR szProductCode, LPCSTR szUserSid, MSIINSTALLCONTEXT dwContext, LPCSTR szComponentCode, INSTALLSTATE *pdwState);
-MSI_INTEROP_EXPORT UINT WINAPI MsiQueryComponentStateW(LPCWSTR szProductCode, LPCWSTR szUserSid, MSIINSTALLCONTEXT dwContext, LPCWSTR szComponentCode, INSTALLSTATE *pdwState);
+MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiLocateComponentA(LPCSTR szComponent, LPSTR lpPathBuf, LPDWORD pcchBuf);
+MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiLocateComponentW(LPCWSTR szComponent, LPWSTR lpPathBuf, LPDWORD pcchBuf);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Enumeration                                              */
+/* Requires Windows Installer Service                                         */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT UINT WINAPI MsiEnumProductsA(DWORD iProductIndex, LPSTR lpProductBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiEnumProductsW(DWORD iProductIndex, LPWSTR lpProductBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiEnumProductsExA(LPCSTR szProductCode, LPCSTR szUserSid, DWORD dwContext, DWORD dwIndex, LPSTR szInstalledProductCode, MSIINSTALLCONTEXT *pdwInstalledContext, LPSTR szSid, LPDWORD pcchSid);
@@ -841,24 +908,32 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiEnumClientsExA(LPCSTR szComponent, LPCSTR szUs
 MSI_INTEROP_EXPORT UINT WINAPI MsiEnumClientsExW(LPCWSTR szComponent, LPCWSTR szUserSid, DWORD dwContext, DWORD dwProductIndex, LPWSTR szProductBuf, MSIINSTALLCONTEXT *pdwInstalledContext, LPWSTR szSid, LPDWORD pcchSid);
 MSI_INTEROP_EXPORT UINT WINAPI MsiEnumComponentQualifiersA(LPCSTR szComponent, DWORD iIndex, LPSTR lpQualifierBuf, LPDWORD pcchQualifierBuf, LPSTR lpApplicationDataBuf, LPDWORD pcchApplicationDataBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiEnumComponentQualifiersW(LPCWSTR szComponent, DWORD iIndex, LPWSTR lpQualifierBuf, LPDWORD pcchQualifierBuf, LPWSTR lpApplicationDataBuf, LPDWORD pcchApplicationDataBuf);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Package / Product opening                                */
+/* Requires Windows Installer Service                                         */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT UINT WINAPI MsiOpenProductA(LPCSTR szProduct, MSIHANDLE *phProduct);
 MSI_INTEROP_EXPORT UINT WINAPI MsiOpenProductW(LPCWSTR szProduct, MSIHANDLE *phProduct);
 MSI_INTEROP_EXPORT UINT WINAPI MsiOpenPackageA(LPCSTR szPackagePath, MSIHANDLE *hProduct);
 MSI_INTEROP_EXPORT UINT WINAPI MsiOpenPackageW(LPCWSTR szPackagePath, MSIHANDLE *hProduct);
 MSI_INTEROP_EXPORT UINT WINAPI MsiOpenPackageExA(LPCSTR szPackagePath, DWORD dwOptions, MSIHANDLE *hProduct);
 MSI_INTEROP_EXPORT UINT WINAPI MsiOpenPackageExW(LPCWSTR szPackagePath, DWORD dwOptions, MSIHANDLE *hProduct);
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetPatchFileListA(LPCSTR szProductCode, LPCSTR szPatchPackages, LPDWORD pcFiles, MSIHANDLE **pphFileRecords);
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetPatchFileListW(LPCWSTR szProductCode, LPCWSTR szPatchPackages, LPDWORD pcFiles, MSIHANDLE **pphFileRecords);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetProductPropertyA(MSIHANDLE hProduct, LPCSTR szProperty, LPSTR lpValueBuf, LPDWORD pcchValueBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetProductPropertyW(MSIHANDLE hProduct, LPCWSTR szProperty, LPWSTR lpValueBuf, LPDWORD pcchValueBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetFeatureInfoA(MSIHANDLE hProduct, LPCSTR szFeature, LPDWORD lpAttributes, LPSTR lpTitleBuf, LPDWORD pcchTitleBuf, LPSTR lpHelpBuf, LPDWORD pcchHelpBuf);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetFeatureInfoW(MSIHANDLE hProduct, LPCWSTR szFeature, LPDWORD lpAttributes, LPWSTR lpTitleBuf, LPDWORD pcchTitleBuf, LPWSTR lpHelpBuf, LPDWORD pcchHelpBuf);
-MSI_INTEROP_EXPORT UINT WINAPI MsiInstallMissingComponentA(LPCSTR szProduct, LPCSTR szComponent, INSTALLSTATE eInstallState);
-MSI_INTEROP_EXPORT UINT WINAPI MsiInstallMissingComponentW(LPCWSTR szProduct, LPCWSTR szComponent, INSTALLSTATE eInstallState);
-MSI_INTEROP_EXPORT UINT WINAPI MsiInstallMissingFileA(LPCSTR szProduct, LPCSTR szFile);
-MSI_INTEROP_EXPORT UINT WINAPI MsiInstallMissingFileW(LPCWSTR szProduct, LPCWSTR szFile);
-MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiLocateComponentA(LPCSTR szComponent, LPSTR lpPathBuf, LPDWORD pcchBuf);
-MSI_INTEROP_EXPORT INSTALLSTATE WINAPI MsiLocateComponentW(LPCWSTR szComponent, LPWSTR lpPathBuf, LPDWORD pcchBuf);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Source list management                                   */
+/* Requires Windows Installer Service                                         */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT UINT WINAPI MsiSourceListClearAllA(LPCSTR szProduct, LPCSTR szUserName, DWORD dwReserved);
 MSI_INTEROP_EXPORT UINT WINAPI MsiSourceListClearAllW(LPCWSTR szProduct, LPCWSTR szUserName, DWORD dwReserved);
 MSI_INTEROP_EXPORT UINT WINAPI MsiSourceListAddSourceA(LPCSTR szProduct, LPCSTR szUserName, DWORD dwReserved, LPCSTR szSource);
@@ -885,10 +960,14 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiSourceListEnumSourcesA(LPCSTR szProductCodeOrP
 MSI_INTEROP_EXPORT UINT WINAPI MsiSourceListEnumSourcesW(LPCWSTR szProductCodeOrPatchCode, LPCWSTR szUserSid, MSIINSTALLCONTEXT dwContext, DWORD dwOptions, DWORD dwIndex, LPWSTR szSource, LPDWORD pcchSource);
 MSI_INTEROP_EXPORT UINT WINAPI MsiSourceListEnumMediaDisksA(LPCSTR szProductCodeOrPatchCode, LPCSTR szUserSid, MSIINSTALLCONTEXT dwContext, DWORD dwOptions, DWORD dwIndex, LPDWORD pdwDiskId, LPSTR szVolumeLabel, LPDWORD pcchVolumeLabel, LPSTR szDiskPrompt, LPDWORD pcchDiskPrompt);
 MSI_INTEROP_EXPORT UINT WINAPI MsiSourceListEnumMediaDisksW(LPCWSTR szProductCodeOrPatchCode, LPCWSTR szUserSid, MSIINSTALLCONTEXT dwContext, DWORD dwOptions, DWORD dwIndex, LPDWORD pdwDiskId, LPWSTR szVolumeLabel, LPDWORD pcchVolumeLabel, LPWSTR szDiskPrompt, LPDWORD pcchDiskPrompt);
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileVersionA(LPCSTR szFilePath, LPSTR lpVersionBuf, LPDWORD pcchVersionBuf, LPSTR lpLangBuf, LPDWORD pcchLangBuf);
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileVersionW(LPCWSTR szFilePath, LPWSTR lpVersionBuf, LPDWORD pcchVersionBuf, LPWSTR lpLangBuf, LPDWORD pcchLangBuf);
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileHashA(LPCSTR szFilePath, DWORD dwOptions, PMSIFILEHASHINFO pHash);
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileHashW(LPCWSTR szFilePath, DWORD dwOptions, PMSIFILEHASHINFO pHash);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Remaining utility functions                              */
+/* Requires Windows Installer Service or Windows-specific functionality       */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT HRESULT WINAPI MsiGetFileSignatureInformationA(LPCSTR szSignedObjectPath, DWORD dwFlags, LPVOID *ppCertContext, LPBYTE pbHashData, LPDWORD pcbHashData);
 MSI_INTEROP_EXPORT HRESULT WINAPI MsiGetFileSignatureInformationW(LPCWSTR szSignedObjectPath, DWORD dwFlags, LPVOID *ppCertContext, LPBYTE pbHashData, LPDWORD pcbHashData);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetShortcutTargetA(LPCSTR szShortcutPath, LPSTR szProductCode, LPSTR szFeatureId, LPSTR szComponentCode);
@@ -897,15 +976,26 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiIsProductElevatedA(LPCSTR szProduct, BOOL *pfE
 MSI_INTEROP_EXPORT UINT WINAPI MsiIsProductElevatedW(LPCWSTR szProduct, BOOL *pfElevated);
 MSI_INTEROP_EXPORT UINT WINAPI MsiNotifySidChangeA(LPCSTR pOldSid, LPCSTR pNewSid);
 MSI_INTEROP_EXPORT UINT WINAPI MsiNotifySidChangeW(LPCWSTR pOldSid, LPCWSTR pNewSid);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Transaction management                                   */
+/* Requires Windows Installer Service                                         */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT UINT WINAPI MsiBeginTransactionA(LPCSTR szName, DWORD dwTransactionAttributes, MSIHANDLE *phTransactionHandle, HANDLE *phChangeOfOwnerEvent);
 MSI_INTEROP_EXPORT UINT WINAPI MsiBeginTransactionW(LPCWSTR szName, DWORD dwTransactionAttributes, MSIHANDLE *phTransactionHandle, HANDLE *phChangeOfOwnerEvent);
 MSI_INTEROP_EXPORT UINT WINAPI MsiEndTransaction(DWORD dwTransactionState);
 MSI_INTEROP_EXPORT UINT WINAPI MsiJoinTransaction(MSIHANDLE hTransactionHandle, DWORD dwTransactionAttributes, HANDLE *phChangeOfOwnerEvent);
+*/
 
 /* ========================================================================== */
-/* Stub functions - Install session (MsiQuery.h)                              */
+/* NOT IMPLEMENTED - Install session functions (MsiQuery.h)                   */
+/* Requires an active installation session                                    */
 /* ========================================================================== */
 
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT MSIHANDLE WINAPI MsiGetActiveDatabase(MSIHANDLE hInstall);
 MSI_INTEROP_EXPORT UINT WINAPI MsiSetPropertyA(MSIHANDLE hInstall, LPCSTR szName, LPCSTR szValue);
 MSI_INTEROP_EXPORT UINT WINAPI MsiSetPropertyW(MSIHANDLE hInstall, LPCWSTR szName, LPCWSTR szValue);
@@ -921,6 +1011,14 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiSequenceW(MSIHANDLE hInstall, LPCWSTR szTable,
 MSI_INTEROP_EXPORT int WINAPI MsiProcessMessage(MSIHANDLE hInstall, INSTALLMESSAGE eMessageType, MSIHANDLE hRecord);
 MSI_INTEROP_EXPORT MSICONDITION WINAPI MsiEvaluateConditionA(MSIHANDLE hInstall, LPCSTR szCondition);
 MSI_INTEROP_EXPORT MSICONDITION WINAPI MsiEvaluateConditionW(MSIHANDLE hInstall, LPCWSTR szCondition);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Feature / Component state (session)                      */
+/* Requires an active installation session                                    */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetFeatureStateA(MSIHANDLE hInstall, LPCSTR szFeature, INSTALLSTATE *piInstalled, INSTALLSTATE *piAction);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetFeatureStateW(MSIHANDLE hInstall, LPCWSTR szFeature, INSTALLSTATE *piInstalled, INSTALLSTATE *piAction);
 MSI_INTEROP_EXPORT UINT WINAPI MsiSetFeatureStateA(MSIHANDLE hInstall, LPCSTR szFeature, INSTALLSTATE iState);
@@ -931,6 +1029,14 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiGetComponentStateA(MSIHANDLE hInstall, LPCSTR 
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetComponentStateW(MSIHANDLE hInstall, LPCWSTR szComponent, INSTALLSTATE *piInstalled, INSTALLSTATE *piAction);
 MSI_INTEROP_EXPORT UINT WINAPI MsiSetComponentStateA(MSIHANDLE hInstall, LPCSTR szComponent, INSTALLSTATE iState);
 MSI_INTEROP_EXPORT UINT WINAPI MsiSetComponentStateW(MSIHANDLE hInstall, LPCWSTR szComponent, INSTALLSTATE iState);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Feature / Component cost and paths (session)             */
+/* Requires an active installation session                                    */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetFeatureCostA(MSIHANDLE hInstall, LPCSTR szFeature, MSICOSTTREE iCostTree, INSTALLSTATE iState, LPINT piCost);
 MSI_INTEROP_EXPORT UINT WINAPI MsiGetFeatureCostW(MSIHANDLE hInstall, LPCWSTR szFeature, MSICOSTTREE iCostTree, INSTALLSTATE iState, LPINT piCost);
 MSI_INTEROP_EXPORT UINT WINAPI MsiEnumComponentCostsA(MSIHANDLE hInstall, LPCSTR szComponent, DWORD dwIndex, INSTALLSTATE iState, LPSTR szDriveBuf, LPDWORD pcchDriveBuf, LPINT piCost, LPINT piTempCost);
@@ -945,11 +1051,20 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiGetTargetPathW(MSIHANDLE hInstall, LPCWSTR szF
 MSI_INTEROP_EXPORT UINT WINAPI MsiSetTargetPathA(MSIHANDLE hInstall, LPCSTR szFolder, LPCSTR szFolderPath);
 MSI_INTEROP_EXPORT UINT WINAPI MsiSetTargetPathW(MSIHANDLE hInstall, LPCWSTR szFolder, LPCWSTR szFolderPath);
 MSI_INTEROP_EXPORT UINT WINAPI MsiVerifyDiskSpace(MSIHANDLE hInstall);
+*/
+
+/* ========================================================================== */
+/* NOT IMPLEMENTED - Preview / Dialog (session)                               */
+/* Requires an active installation session                                    */
+/* ========================================================================== */
+
+/* NOT IMPLEMENTED
 MSI_INTEROP_EXPORT UINT WINAPI MsiEnableUIPreview(MSIHANDLE hDatabase, MSIHANDLE *phPreview);
 MSI_INTEROP_EXPORT UINT WINAPI MsiPreviewDialogA(MSIHANDLE hPreview, LPCSTR szDialogName);
 MSI_INTEROP_EXPORT UINT WINAPI MsiPreviewDialogW(MSIHANDLE hPreview, LPCWSTR szDialogName);
 MSI_INTEROP_EXPORT UINT WINAPI MsiPreviewBillboardA(MSIHANDLE hPreview, LPCSTR szControlName, LPCSTR szBillboard);
 MSI_INTEROP_EXPORT UINT WINAPI MsiPreviewBillboardW(MSIHANDLE hPreview, LPCWSTR szControlName, LPCWSTR szBillboard);
+*/
 
 #ifdef __cplusplus
 }

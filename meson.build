@@ -399,13 +399,13 @@ msi_interop_sources = [
   'msi-interop/record.c',
   'msi-interop/summary.c',
   'msi-interop/file_utils.c',
-  'msi-interop/stubs.c',
 ]
 
 msi_interop_inc = include_directories('msi-interop')
 
 msi_interop_shared = shared_library('msi-interop',
   msi_interop_sources,
+  libmsi_enums[1],
   objects: [libmsi.extract_all_objects(), libgsf.extract_all_objects()],
   include_directories: [inc_dirs, gsf_inc_dirs, msi_interop_inc],
   dependencies: libmsi_shared_deps,
