@@ -791,25 +791,7 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiSourceListEnumMediaDisksW(LPCWSTR szProductCod
 /* Utilities                                                                  */
 /* ========================================================================== */
 
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileVersionA(LPCSTR szFilePath, LPSTR lpVersionBuf, LPDWORD pcchVersionBuf, LPSTR lpLangBuf, LPDWORD pcchLangBuf) {
-    (void)szFilePath; (void)lpVersionBuf; (void)pcchVersionBuf; (void)lpLangBuf; (void)pcchLangBuf;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileVersionW(LPCWSTR szFilePath, LPWSTR lpVersionBuf, LPDWORD pcchVersionBuf, LPWSTR lpLangBuf, LPDWORD pcchLangBuf) {
-    (void)szFilePath; (void)lpVersionBuf; (void)pcchVersionBuf; (void)lpLangBuf; (void)pcchLangBuf;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileHashA(LPCSTR szFilePath, DWORD dwOptions, PMSIFILEHASHINFO pHash) {
-    (void)szFilePath; (void)dwOptions; (void)pHash;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
-
-MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileHashW(LPCWSTR szFilePath, DWORD dwOptions, PMSIFILEHASHINFO pHash) {
-    (void)szFilePath; (void)dwOptions; (void)pHash;
-    return ERROR_CALL_NOT_IMPLEMENTED;
-}
+/* MsiGetFileVersionA/W and MsiGetFileHashA/W are implemented in file_utils.c */
 
 MSI_INTEROP_EXPORT HRESULT WINAPI MsiGetFileSignatureInformationA(LPCSTR szSignedObjectPath, DWORD dwFlags, LPVOID *ppCertContext, LPBYTE pbHashData, LPDWORD pcbHashData) {
     (void)szSignedObjectPath; (void)dwFlags; (void)ppCertContext; (void)pbHashData; (void)pcbHashData;

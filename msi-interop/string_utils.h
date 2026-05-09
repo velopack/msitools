@@ -20,9 +20,9 @@ WCHAR *utf8_to_utf16(const char *utf8, size_t *out_len);
 // - If buf is NULL and pcch is not NULL: set *pcch to required length (not including null), return ERROR_MORE_DATA
 // - If buf is not NULL and *pcch is less than required: copy what fits, set *pcch to required length, return ERROR_MORE_DATA
 // - Otherwise: copy string, set *pcch to actual length (not including null), return ERROR_SUCCESS
-unsigned int copy_string_to_bufA(const char *str, char *buf, unsigned int *pcch);
+unsigned int copy_string_to_bufA(const char *str, char *buf, unsigned long *pcch);
 
 // Same but for wide (WCHAR*) buffers.
-unsigned int copy_string_to_bufW(const char *str, WCHAR *buf, unsigned int *pcch);
+unsigned int copy_string_to_bufW(const char *str, WCHAR *buf, unsigned long *pcch);
 
 #endif
