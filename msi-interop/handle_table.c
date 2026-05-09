@@ -1,5 +1,6 @@
 #include "handle_table.h"
 #include <glib.h>
+#include <gsf/gsf-utils.h>
 
 typedef struct {
     GObject *obj;
@@ -245,5 +246,6 @@ __attribute__((constructor))
 static void
 handle_table_auto_init(void)
 {
+    gsf_init();
     handle_table_init();
 }
