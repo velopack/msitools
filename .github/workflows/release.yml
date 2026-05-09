@@ -59,6 +59,7 @@ jobs:
             --generate-notes \
             release/wixl-win-x86.exe \
             release/wixl-win-x64.exe \
+            release/wixl-win-arm64.exe \
             release/wixl-linux-x64 \
             release/wixl-linux-arm64 \
             release/wixl-osx-universal
