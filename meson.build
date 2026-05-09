@@ -385,7 +385,7 @@ else
 endif
 
 libmsi_shared = shared_library('msi',
-  link_whole: [libmsi, libgsf],
+  objects: [libmsi.extract_all_objects(), libgsf.extract_all_objects()],
   dependencies: libmsi_shared_deps,
   link_args: libmsi_shared_link_args,
 )
