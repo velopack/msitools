@@ -403,13 +403,16 @@ msi_interop_sources = [
 
 msi_interop_inc = include_directories('msi-interop')
 
+msi_interop_deps = [glib, gio, gobject, libxml, zlib]
+msi_interop_link_args = libmsi_shared_link_args
+
 msi_interop_shared = shared_library('msi-interop',
   msi_interop_sources,
   libmsi_enums[1],
   objects: [libmsi.extract_all_objects(), libgsf.extract_all_objects()],
   include_directories: [inc_dirs, gsf_inc_dirs, msi_interop_inc],
-  dependencies: libmsi_shared_deps,
-  link_args: libmsi_shared_link_args,
+  dependencies: msi_interop_deps,
+  link_args: msi_interop_link_args,
   gnu_symbol_visibility: 'hidden',
 )
 
