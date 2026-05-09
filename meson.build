@@ -440,10 +440,12 @@ msi_interop_sources = [
 
 msi_interop_inc = include_directories('msi-interop')
 
-msi_interop_deps = [glib, gio, gobject, libxml, zlib]
-msi_interop_link_with = []
 if host_machine.system() == 'linux'
-  msi_interop_link_with = [libeconf]
+  msi_interop_deps = libmsi_shared_deps
+  msi_interop_link_with = []
+else
+  msi_interop_deps = [glib, gio, gobject, libxml, zlib]
+  msi_interop_link_with = []
 endif
 
 msi_interop_shared = shared_library('msi-interop',
