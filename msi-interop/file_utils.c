@@ -19,6 +19,10 @@
 #define ERROR_FILE_NOT_FOUND 2L
 #endif
 
+#ifndef ERROR_FILE_INVALID
+#define ERROR_FILE_INVALID 1006L
+#endif
+
 #ifndef ERROR_OPEN_FAILED
 #define ERROR_OPEN_FAILED 110L
 #endif
@@ -271,9 +275,7 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileVersionA(LPCSTR szFilePath, LPSTR lpVer
     /* Check for MZ signature */
     if (!is_pe_file(data, length)) {
         g_free(contents);
-        /* Not a PE file -- return empty version info via ERROR_FILE_NOT_FOUND
-         * which matches Windows behavior for non-PE files */
-        return ERROR_FILE_NOT_FOUND;
+        return ERROR_FILE_INVALID;
     }
 
     /* Try to find VS_FIXEDFILEINFO */
@@ -282,10 +284,7 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileVersionA(LPCSTR szFilePath, LPSTR lpVer
 
     if (!found_version) {
         g_free(contents);
-        /* The file is a PE but has no version info. Return empty strings
-         * if buffers are provided; this matches the Windows behavior of
-         * returning ERROR_FILE_NOT_FOUND for files without version resources. */
-        return ERROR_FILE_NOT_FOUND;
+        return ERROR_FILE_INVALID;
     }
 
     /* Format the version string */
@@ -351,7 +350,7 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileVersionW(LPCWSTR szFilePath, LPWSTR lpV
     /* Check for MZ signature */
     if (!is_pe_file(data, length)) {
         g_free(contents);
-        return ERROR_FILE_NOT_FOUND;
+        return ERROR_FILE_INVALID;
     }
 
     /* Try to find VS_FIXEDFILEINFO */
@@ -360,7 +359,7 @@ MSI_INTEROP_EXPORT UINT WINAPI MsiGetFileVersionW(LPCWSTR szFilePath, LPWSTR lpV
 
     if (!found_version) {
         g_free(contents);
-        return ERROR_FILE_NOT_FOUND;
+        return ERROR_FILE_INVALID;
     }
 
     /* Format the version string */
