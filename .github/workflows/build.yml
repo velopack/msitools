@@ -215,27 +215,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          submodules: false
+          submodules: true
 
       - uses: actions/download-artifact@v4
         with:
           pattern: build-*
           merge-multiple: true
 
-      - name: Create macOS universal binary
+      - name: Create macOS universal wixl binary
         run: |
           lipo -create wixl-macos-arm64 wixl-macos-x64 -output wixl-osx-universal
           chmod +x wixl-osx-universal
           file wixl-osx-universal
           rm wixl-macos-arm64 wixl-macos-x64
 
-      - name: Create macOS universal libmsi
+      - name: Create macOS universal dylib
         run: |
-          lipo -create libmsi-macos-arm64.a libmsi-macos-x64.a -output libmsi-osx-universal.a
           lipo -create libmsi-macos-arm64.dylib libmsi-macos-x64.dylib -output libmsi-osx-universal.dylib
-          file libmsi-osx-universal.a
           file libmsi-osx-universal.dylib
-          rm libmsi-macos-arm64.a libmsi-macos-x64.a libmsi-macos-arm64.dylib libmsi-macos-x64.dylib
+          rm libmsi-macos-arm64.dylib libmsi-macos-x64.dylib
 
       - name: Package wixl
         run: |
@@ -259,7 +257,7 @@ jobs:
           mv libmsi-osx-universal.dylib build-libmsi/shared/
           mv libmsi-win-*.lib build-libmsi/static/
           mv libmsi-linux-*.a build-libmsi/static/
-          mv libmsi-osx-universal.a build-libmsi/static/
+          mv libmsi-macos-arm64.a libmsi-macos-x64.a build-libmsi/static/
           ls -laR build-libmsi/
 
       - uses: actions/upload-artifact@v4
