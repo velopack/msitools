@@ -620,10 +620,14 @@ typedef INSTALLUI_HANDLER_RECORD PINSTALLUI_HANDLER_RECORD;
 /* Structs                                                                    */
 /* ========================================================================== */
 
-typedef struct {
+#ifndef MSI_INTEROP_FILEHASHINFO_DEFINED
+#define MSI_INTEROP_FILEHASHINFO_DEFINED
+typedef struct MSIFILEHASHINFO {
     DWORD dwFileHashInfoSize;
     DWORD dwData[4];
-} MSIFILEHASHINFO, *PMSIFILEHASHINFO;
+} MSIFILEHASHINFO;
+#endif
+typedef MSIFILEHASHINFO *PMSIFILEHASHINFO;
 
 typedef enum {
     MSIPATCH_DATATYPE_PATCHFILE = 0,

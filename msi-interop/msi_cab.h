@@ -14,6 +14,7 @@
 #define MSICAB_H
 
 #include <stdint.h>
+#include <wchar.h>
 
 #ifdef _WIN32
 #define MSICAB_API __declspec(dllexport)
@@ -43,10 +44,13 @@ typedef uintptr_t CABHANDLE;
 
 /* MSIFILEHASHINFO -- matches the layout in MsiInterop / msi.h.
  * Used for duplicate file detection during cabinet creation. */
-typedef struct {
+#ifndef MSI_INTEROP_FILEHASHINFO_DEFINED
+#define MSI_INTEROP_FILEHASHINFO_DEFINED
+typedef struct MSIFILEHASHINFO {
     uint32_t FileHashInfoSize;  /* must be 20 */
     int32_t  Data[4];
 } MSIFILEHASHINFO;
+#endif
 
 /* Info about a cabinet created by CabFlush. */
 typedef struct {
