@@ -30,8 +30,10 @@ if host_machine.system() == 'windows'
 endif
 
 # --- libxml2 ---
-if host_machine.system() == 'darwin'
-  # Build from source on macOS — Homebrew doesn't provide a static libxml2.a
+# Build from source on macOS (Homebrew doesn't ship static libxml2.a) and
+# Linux (Alpine's libxml2.a isn't compiled with -fPIC, so it can't be embedded
+# into a shared object like libmsi-interop.so).
+if host_machine.system() == 'darwin' or host_machine.system() == 'linux'
   cc = meson.get_compiler('c')
 
   xml2_version_config = configuration_data()
@@ -448,6 +450,9 @@ if host_machine.system() == 'linux'
   # Statically embed all dependencies into libmsi-interop.so so it has no
   # runtime system library dependencies (other than libc) when loaded via
   # P/Invoke from C#. This requires PIC-compiled static libs.
+  # libeconf provides econf_* symbols required by libblkid (transitive dep
+  # of glib's gio static link).
+  msi_interop_link_with += [libeconf]
   msi_interop_link_args += [
     '-Wl,--exclude-libs,ALL',
   ]
