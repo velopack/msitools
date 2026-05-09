@@ -20,12 +20,16 @@ extern "C" {
 /* Platform types                                                             */
 /* ========================================================================== */
 
+#ifdef _WIN32
+#include <windows.h>
+typedef unsigned int MSIHANDLE;
+#else
 typedef unsigned int    MSIHANDLE;
 typedef unsigned int    UINT;
 typedef unsigned int    DWORD;
 typedef int             BOOL;
 typedef int             INT;
-typedef int             HRESULT;
+typedef long            HRESULT;
 typedef unsigned short  WORD;
 typedef unsigned short  LANGID;
 typedef unsigned char   BYTE;
@@ -43,13 +47,8 @@ typedef int*            LPINT;
 typedef UINT*           PUINT;
 typedef WORD*           LPWORD;
 
-#ifdef _WIN32
-typedef wchar_t*        LPWSTR;
-typedef const wchar_t*  LPCWSTR;
-#else
 typedef unsigned short*        LPWSTR;
 typedef const unsigned short*  LPCWSTR;
-#endif
 
 #ifndef TRUE
 #define TRUE 1
@@ -62,6 +61,7 @@ typedef struct {
     DWORD dwLowDateTime;
     DWORD dwHighDateTime;
 } FILETIME;
+#endif /* !_WIN32 */
 
 /* ========================================================================== */
 /* Export / calling convention macros                                          */
@@ -69,7 +69,7 @@ typedef struct {
 
 #ifdef _WIN32
 #define MSI_INTEROP_EXPORT __declspec(dllexport)
-#define WINAPI __stdcall
+/* WINAPI is already defined by windows.h */
 #else
 #define MSI_INTEROP_EXPORT __attribute__((visibility("default")))
 #define WINAPI

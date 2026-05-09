@@ -405,10 +405,13 @@ msi_interop_inc = include_directories('msi-interop')
 
 msi_interop_shared = shared_library('msi-interop',
   msi_interop_sources,
+  libmsi_enums,
+  config_h,
   objects: [libmsi.extract_all_objects(), libgsf.extract_all_objects()],
-  include_directories: [inc_dirs, msi_interop_inc],
+  include_directories: [inc_dirs, gsf_inc_dirs, msi_interop_inc],
   dependencies: libmsi_shared_deps,
   link_args: libmsi_shared_link_args,
+  c_args: ['-include', meson.project_build_root() / 'config.h'],
   gnu_symbol_visibility: 'hidden',
 )
 
