@@ -68,7 +68,7 @@ jobs:
       - name: Collect libmsi artifacts
         shell: msys2 {0}
         run: |
-          (cd builddir && mkdir _objs && cd _objs && ar x ../libmsi-1.0.a && ar rcs ../libmsi.a * && cd .. && rm -rf _objs)
+          (cd builddir && ar rcs libmsi.a $(ar t libmsi-1.0.a))
           cp builddir/libmsi.a libmsi-win-${{ matrix.arch }}.a
           cp builddir/libmsi.dll libmsi-win-${{ matrix.arch }}.dll
           cp builddir/libmsi.dll.a libmsi-win-${{ matrix.arch }}.dll.a
@@ -123,7 +123,7 @@ jobs:
             file builddir/libmsi.so
             ls -lh builddir/libmsi.so
             echo "=== creating non-thin static archive ==="
-            (cd builddir && mkdir _objs && cd _objs && ar x ../libmsi-1.0.a && ar rcs ../libmsi.a * && cd .. && rm -rf _objs)
+            (cd builddir && ar rcs libmsi.a $(ar t libmsi-1.0.a))
             ls -lh builddir/libmsi.a
           '
 
