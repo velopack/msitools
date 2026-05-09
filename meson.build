@@ -390,6 +390,28 @@ libmsi_shared = shared_library('msi',
   link_args: libmsi_shared_link_args,
 )
 
+# --- msi-interop shared library (Win32 MSI API compatibility layer) ---
+msi_interop_sources = [
+  'msi-interop/handle_table.c',
+  'msi-interop/string_utils.c',
+  'msi-interop/database.c',
+  'msi-interop/query.c',
+  'msi-interop/record.c',
+  'msi-interop/summary.c',
+  'msi-interop/stubs.c',
+]
+
+msi_interop_inc = include_directories('msi-interop')
+
+msi_interop_shared = shared_library('msi-interop',
+  msi_interop_sources,
+  objects: [libmsi.extract_all_objects(), libgsf.extract_all_objects()],
+  include_directories: [inc_dirs, msi_interop_inc],
+  dependencies: libmsi_shared_deps,
+  link_args: libmsi_shared_link_args,
+  gnu_symbol_visibility: 'hidden',
+)
+
 # --- Platform-specific dependencies and link args ---
 platform_link_deps = []
 
