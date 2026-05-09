@@ -18,6 +18,12 @@ zlib    = dependency('zlib',        static: true)
 
 add_project_arguments('-w', language: 'c')
 
+# MSYS2 CLANGARM64 has intermittent false-positive stack-protector failures,
+# likely due to __stack_chk_guard TLS initialization ordering in the toolchain.
+if meson.get_compiler('c').get_id() == 'clang' and host_machine.cpu_family() == 'aarch64'
+  add_project_arguments('-fno-stack-protector', language: 'c')
+endif
+
 if host_machine.system() == 'windows'
   add_project_arguments(
     '-DGLIB_STATIC_COMPILATION',
