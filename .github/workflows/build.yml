@@ -279,14 +279,20 @@ jobs:
           mv libmsi-win-*.dll.lib build-libmsi/shared/
           mv libmsi-linux-*.so build-libmsi/shared/
           mv libmsi-osx-universal.dylib build-libmsi/shared/
-          mv msi-interop-win-*.dll build-libmsi/shared/
-          mv msi-interop-win-*.dll.lib build-libmsi/shared/
-          mv msi-interop-linux-*.so build-libmsi/shared/
-          mv msi-interop-osx-universal.dylib build-libmsi/shared/
           mv libmsi-win-*.lib build-libmsi/static/
           mv libmsi-linux-*.a build-libmsi/static/
           mv libmsi-macos-arm64.a libmsi-macos-x64.a build-libmsi/static/
           ls -laR build-libmsi/
+
+      - name: Package msi-interop
+        run: |
+          mkdir -p build-msi-interop/include build-msi-interop/shared
+          cp msi-interop/msi_interop.h msi-interop/msi_cab.h build-msi-interop/include/
+          mv msi-interop-win-*.dll build-msi-interop/shared/
+          mv msi-interop-win-*.dll.lib build-msi-interop/shared/
+          mv msi-interop-linux-*.so build-msi-interop/shared/
+          mv msi-interop-osx-universal.dylib build-msi-interop/shared/
+          ls -laR build-msi-interop/
 
       - uses: actions/upload-artifact@v4
         with:
@@ -297,3 +303,8 @@ jobs:
         with:
           name: build-libmsi
           path: build-libmsi/**/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-msi-interop
+          path: build-msi-interop/**/*

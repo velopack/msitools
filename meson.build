@@ -435,6 +435,7 @@ msi_interop_sources = [
   'msi-interop/record.c',
   'msi-interop/summary.c',
   'msi-interop/file_utils.c',
+  'msi-interop/msi_cab.c',
 ]
 
 msi_interop_inc = include_directories('msi-interop')
@@ -448,8 +449,8 @@ endif
 msi_interop_shared = shared_library('msi-interop',
   msi_interop_sources,
   libmsi_enums[1],
-  objects: [libmsi.extract_all_objects(), libgsf.extract_all_objects()],
-  include_directories: [inc_dirs, gsf_inc_dirs, msi_interop_inc],
+  objects: [libmsi.extract_all_objects(), libgsf.extract_all_objects(), libgcab.extract_all_objects()],
+  include_directories: [inc_dirs, gsf_inc_dirs, gcab_inc_dirs, msi_interop_inc],
   dependencies: msi_interop_deps,
   link_with: msi_interop_link_with,
   link_args: libmsi_shared_link_args,
