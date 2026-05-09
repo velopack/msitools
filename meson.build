@@ -30,8 +30,10 @@ if host_machine.system() == 'windows'
 endif
 
 # --- libxml2 ---
-if host_machine.system() == 'darwin'
-  # Build from source on macOS — Homebrew doesn't provide a static libxml2.a
+# Build from source on macOS (Homebrew doesn't ship static libxml2.a) and
+# Linux (Alpine's libxml2.a isn't compiled with -fPIC, so it can't be embedded
+# into a shared object like libmsi-interop.so).
+if host_machine.system() == 'darwin' or host_machine.system() == 'linux'
   cc = meson.get_compiler('c')
 
   xml2_version_config = configuration_data()
@@ -440,12 +442,20 @@ msi_interop_sources = [
 
 msi_interop_inc = include_directories('msi-interop')
 
+msi_interop_deps = [glib, gio, gobject, libxml, zlib]
+msi_interop_link_with = []
+msi_interop_link_args = libmsi_shared_link_args
+
 if host_machine.system() == 'linux'
-  msi_interop_deps = libmsi_shared_deps
-  msi_interop_link_with = []
-else
-  msi_interop_deps = [glib, gio, gobject, libxml, zlib]
-  msi_interop_link_with = []
+  # Statically embed all dependencies into libmsi-interop.so so it has no
+  # runtime system library dependencies (other than libc) when loaded via
+  # P/Invoke from C#. This requires PIC-compiled static libs.
+  # libeconf provides econf_* symbols required by libblkid (transitive dep
+  # of glib's gio static link).
+  msi_interop_link_with += [libeconf]
+  msi_interop_link_args += [
+    '-Wl,--exclude-libs,ALL',
+  ]
 endif
 
 msi_interop_shared = shared_library('msi-interop',
@@ -455,7 +465,7 @@ msi_interop_shared = shared_library('msi-interop',
   include_directories: [inc_dirs, gsf_inc_dirs, gcab_inc_dirs, msi_interop_inc],
   dependencies: msi_interop_deps,
   link_with: msi_interop_link_with,
-  link_args: libmsi_shared_link_args,
+  link_args: msi_interop_link_args,
   gnu_symbol_visibility: 'hidden',
 )
 
