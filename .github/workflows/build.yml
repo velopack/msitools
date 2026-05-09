@@ -68,7 +68,8 @@ jobs:
       - name: Collect libmsi artifacts
         shell: msys2 {0}
         run: |
-          cp builddir/libmsi-1.0.a libmsi-win-${{ matrix.arch }}.a
+          (cd builddir && mkdir _objs && cd _objs && ar x ../libmsi-1.0.a && ar rcs ../libmsi.a * && cd .. && rm -rf _objs)
+          cp builddir/libmsi.a libmsi-win-${{ matrix.arch }}.a
           cp builddir/libmsi.dll libmsi-win-${{ matrix.arch }}.dll
           cp builddir/libmsi.dll.a libmsi-win-${{ matrix.arch }}.dll.a
 
@@ -121,6 +122,9 @@ jobs:
             echo "=== libmsi shared library ==="
             file builddir/libmsi.so
             ls -lh builddir/libmsi.so
+            echo "=== creating non-thin static archive ==="
+            (cd builddir && mkdir _objs && cd _objs && ar x ../libmsi-1.0.a && ar rcs ../libmsi.a * && cd .. && rm -rf _objs)
+            ls -lh builddir/libmsi.a
           '
 
       - name: Rename binary
@@ -128,7 +132,7 @@ jobs:
 
       - name: Collect libmsi artifacts
         run: |
-          cp builddir/libmsi-1.0.a libmsi-linux-${{ matrix.arch }}.a
+          cp builddir/libmsi.a libmsi-linux-${{ matrix.arch }}.a
           cp builddir/libmsi.so libmsi-linux-${{ matrix.arch }}.so
 
       - uses: actions/upload-artifact@v4
