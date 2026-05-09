@@ -19,10 +19,10 @@ void handle_table_init(void);
 // Allocate a handle for a GObject, adds a ref. Returns 0 on failure.
 MSIHANDLE handle_table_alloc(GObject *obj, HandleType type);
 
-// Get the GObject for a handle. Does NOT add a ref. Returns NULL if invalid.
+// Get the GObject for a handle. Adds a ref; caller must g_object_unref(). Returns NULL if invalid.
 GObject *handle_table_get(MSIHANDLE handle);
 
-// Get the GObject for a handle with type check. Returns NULL if invalid or wrong type.
+// Get the GObject for a handle with type check. Adds a ref; caller must g_object_unref(). Returns NULL if invalid or wrong type.
 GObject *handle_table_get_typed(MSIHANDLE handle, HandleType type);
 
 // Close a handle, unrefs the GObject. Returns 0 on success, non-zero on error.

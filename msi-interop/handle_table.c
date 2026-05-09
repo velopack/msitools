@@ -129,6 +129,7 @@ handle_table_get(MSIHANDLE handle)
     }
 
     GObject *obj = slots[index].obj;
+    g_object_ref(obj);
 
     g_mutex_unlock(&table_mutex);
 
@@ -156,6 +157,7 @@ handle_table_get_typed(MSIHANDLE handle, HandleType type)
     }
 
     GObject *obj = slots[index].obj;
+    g_object_ref(obj);
 
     g_mutex_unlock(&table_mutex);
 

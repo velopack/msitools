@@ -139,6 +139,7 @@ MsiGetSummaryInformationA(MSIHANDLE hDatabase, LPCSTR szDatabasePath,
         db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
         if (!db)
             return ERROR_INVALID_HANDLE;
+        opened_db = FALSE;
     } else {
         /* Open a temporary database from the given path */
         GError *error = NULL;
@@ -153,8 +154,8 @@ MsiGetSummaryInformationA(MSIHANDLE hDatabase, LPCSTR szDatabasePath,
     GError *error = NULL;
     LibmsiSummaryInfo *si = libmsi_summary_info_new(db, uiUpdateCount, &error);
 
-    if (opened_db)
-        g_object_unref(db);
+    /* Always unref db: either we opened it (opened_db) or handle_table_get_typed added a ref */
+    g_object_unref(db);
 
     if (!si)
         return gerror_to_msi(error);
@@ -206,6 +207,8 @@ MsiSummaryInfoGetPropertyCount(MSIHANDLE hSummaryInfo, PUINT puiPropertyCount)
         return ERROR_INVALID_HANDLE;
 
     GArray *props = libmsi_summary_info_get_properties(si);
+    g_object_unref(si);
+
     if (props) {
         *puiPropertyCount = props->len;
         g_array_unref(props);
@@ -246,8 +249,10 @@ MsiSummaryInfoSetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
         break;
 
     case VT_FILETIME:
-        if (!pftValue)
+        if (!pftValue) {
+            g_object_unref(si);
             return ERROR_INVALID_PARAMETER;
+        }
         {
             guint64 ft = ((guint64)pftValue->dwHighDateTime << 32) |
                          (guint64)pftValue->dwLowDateTime;
@@ -256,8 +261,6 @@ MsiSummaryInfoSetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
         break;
 
     case VT_EMPTY:
-        /* Clear the property by setting it to an empty/zero value.
-         * Check the current type and clear accordingly. */
         {
             LibmsiPropertyType pt =
                 libmsi_summary_info_get_property_type(si, prop, NULL);
@@ -277,8 +280,11 @@ MsiSummaryInfoSetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
         break;
 
     default:
+        g_object_unref(si);
         return ERROR_INVALID_DATATYPE;
     }
+
+    g_object_unref(si);
 
     if (!ok)
         return gerror_to_msi(error);
@@ -334,20 +340,26 @@ MsiSummaryInfoGetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
     GError *error = NULL;
     LibmsiPropertyType pt = libmsi_summary_info_get_property_type(si, prop,
                                                                    &error);
-    if (error)
+    if (error) {
+        g_object_unref(si);
         return gerror_to_msi(error);
+    }
 
     UINT vt = property_type_to_vt(pt);
     if (puiDataType)
         *puiDataType = vt;
+
+    UINT ret = ERROR_SUCCESS;
 
     switch (vt) {
     case VT_I4:
         if (piValue) {
             error = NULL;
             *piValue = libmsi_summary_info_get_int(si, prop, &error);
-            if (error)
+            if (error) {
+                g_object_unref(si);
                 return gerror_to_msi(error);
+            }
         }
         break;
 
@@ -356,19 +368,12 @@ MsiSummaryInfoGetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
             error = NULL;
             const gchar *str = libmsi_summary_info_get_string(si, prop,
                                                                &error);
-            if (error)
+            if (error) {
+                g_object_unref(si);
                 return gerror_to_msi(error);
-
-            if (str) {
-                UINT r = copy_string_to_bufA(str, szValueBuf, pcchValueBuf);
-                if (r != ERROR_SUCCESS)
-                    return r;
-            } else {
-                /* Empty string */
-                UINT r = copy_string_to_bufA("", szValueBuf, pcchValueBuf);
-                if (r != ERROR_SUCCESS)
-                    return r;
             }
+
+            ret = copy_string_to_bufA(str ? str : "", szValueBuf, pcchValueBuf);
         }
         break;
 
@@ -376,8 +381,10 @@ MsiSummaryInfoGetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
         if (pftValue) {
             error = NULL;
             guint64 ft = libmsi_summary_info_get_filetime(si, prop, &error);
-            if (error)
+            if (error) {
+                g_object_unref(si);
                 return gerror_to_msi(error);
+            }
             pftValue->dwHighDateTime = (DWORD)(ft >> 32);
             pftValue->dwLowDateTime = (DWORD)(ft & 0xFFFFFFFF);
         }
@@ -385,11 +392,11 @@ MsiSummaryInfoGetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
 
     case VT_EMPTY:
     default:
-        /* Nothing to fill in beyond the type */
         break;
     }
 
-    return ERROR_SUCCESS;
+    g_object_unref(si);
+    return ret;
 }
 
 UINT WINAPI
@@ -417,20 +424,26 @@ MsiSummaryInfoGetPropertyW(MSIHANDLE hSummaryInfo, UINT uiProperty,
     GError *error = NULL;
     LibmsiPropertyType pt = libmsi_summary_info_get_property_type(si, prop,
                                                                    &error);
-    if (error)
+    if (error) {
+        g_object_unref(si);
         return gerror_to_msi(error);
+    }
 
     UINT vt = property_type_to_vt(pt);
     if (puiDataType)
         *puiDataType = vt;
+
+    UINT ret = ERROR_SUCCESS;
 
     switch (vt) {
     case VT_I4:
         if (piValue) {
             error = NULL;
             *piValue = libmsi_summary_info_get_int(si, prop, &error);
-            if (error)
+            if (error) {
+                g_object_unref(si);
                 return gerror_to_msi(error);
+            }
         }
         break;
 
@@ -439,20 +452,13 @@ MsiSummaryInfoGetPropertyW(MSIHANDLE hSummaryInfo, UINT uiProperty,
             error = NULL;
             const gchar *str = libmsi_summary_info_get_string(si, prop,
                                                                &error);
-            if (error)
+            if (error) {
+                g_object_unref(si);
                 return gerror_to_msi(error);
-
-            if (str) {
-                UINT r = copy_string_to_bufW(str, (WCHAR *)szValueBuf,
-                                             pcchValueBuf);
-                if (r != ERROR_SUCCESS)
-                    return r;
-            } else {
-                UINT r = copy_string_to_bufW("", (WCHAR *)szValueBuf,
-                                             pcchValueBuf);
-                if (r != ERROR_SUCCESS)
-                    return r;
             }
+
+            ret = copy_string_to_bufW(str ? str : "", (WCHAR *)szValueBuf,
+                                      pcchValueBuf);
         }
         break;
 
@@ -460,8 +466,10 @@ MsiSummaryInfoGetPropertyW(MSIHANDLE hSummaryInfo, UINT uiProperty,
         if (pftValue) {
             error = NULL;
             guint64 ft = libmsi_summary_info_get_filetime(si, prop, &error);
-            if (error)
+            if (error) {
+                g_object_unref(si);
                 return gerror_to_msi(error);
+            }
             pftValue->dwHighDateTime = (DWORD)(ft >> 32);
             pftValue->dwLowDateTime = (DWORD)(ft & 0xFFFFFFFF);
         }
@@ -472,7 +480,8 @@ MsiSummaryInfoGetPropertyW(MSIHANDLE hSummaryInfo, UINT uiProperty,
         break;
     }
 
-    return ERROR_SUCCESS;
+    g_object_unref(si);
+    return ret;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -489,7 +498,10 @@ MsiSummaryInfoPersist(MSIHANDLE hSummaryInfo)
         return ERROR_INVALID_HANDLE;
 
     GError *error = NULL;
-    if (!libmsi_summary_info_persist(si, &error))
+    gboolean ok = libmsi_summary_info_persist(si, &error);
+    g_object_unref(si);
+
+    if (!ok)
         return gerror_to_msi(error);
 
     return ERROR_SUCCESS;

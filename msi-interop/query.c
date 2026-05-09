@@ -93,6 +93,7 @@ UINT WINAPI MsiDatabaseOpenViewA(MSIHANDLE hDatabase, LPCSTR szQuery, MSIHANDLE 
 
     GError *error = NULL;
     LibmsiQuery *query = libmsi_query_new(db, szQuery, &error);
+    g_object_unref(db);
     if (!query)
         return gerror_to_msi(error);
 
@@ -132,12 +133,18 @@ UINT WINAPI MsiViewExecute(MSIHANDLE hView, MSIHANDLE hRecord)
     LibmsiRecord *rec = NULL;
     if (hRecord != 0) {
         rec = (LibmsiRecord *)handle_table_get_typed(hRecord, HANDLE_RECORD);
-        if (!rec)
+        if (!rec) {
+            g_object_unref(query);
             return ERROR_INVALID_HANDLE;
+        }
     }
 
     GError *error = NULL;
     gboolean ok = libmsi_query_execute(query, rec, &error);
+
+    g_object_unref(query);
+    if (rec) g_object_unref(rec);
+
     if (!ok)
         return gerror_to_msi(error);
 
@@ -159,6 +166,8 @@ UINT WINAPI MsiViewFetch(MSIHANDLE hView, MSIHANDLE *phRecord)
 
     GError *error = NULL;
     LibmsiRecord *rec = libmsi_query_fetch(query, &error);
+    g_object_unref(query);
+
     if (!rec) {
         if (error) {
             return gerror_to_msi(error);
@@ -186,122 +195,102 @@ UINT WINAPI MsiViewModify(MSIHANDLE hView, MSIMODIFY eModifyMode, MSIHANDLE hRec
         return ERROR_INVALID_HANDLE;
 
     LibmsiRecord *rec = (LibmsiRecord *)handle_table_get_typed(hRecord, HANDLE_RECORD);
-    if (!rec)
+    if (!rec) {
+        g_object_unref(query);
         return ERROR_INVALID_HANDLE;
+    }
 
     /* Access internal query view */
     LibmsiView *view = query->view;
-    if (!view || !view->ops)
+    if (!view || !view->ops) {
+        g_object_unref(query);
+        g_object_unref(rec);
         return ERROR_FUNCTION_FAILED;
+    }
 
     unsigned r;
+    UINT ret;
 
     switch (eModifyMode) {
         case MSIMODIFY_REFRESH: {
-            /* Refresh: re-read the current row into the record */
-            if (!view->ops->get_row)
-                return ERROR_FUNCTION_FAILED;
-            if (query->row == 0)
-                return ERROR_FUNCTION_FAILED;
+            if (!view->ops->get_row || query->row == 0) {
+                ret = ERROR_FUNCTION_FAILED;
+                break;
+            }
             LibmsiRecord *refreshed = NULL;
             r = view->ops->get_row(view, query->row - 1, &refreshed);
-            if (r != ERROR_SUCCESS)
-                return r;
-            /* Copy field data from refreshed record into the caller's record */
+            if (r != ERROR_SUCCESS) {
+                ret = r;
+                break;
+            }
             unsigned count = refreshed->count;
             for (unsigned i = 0; i <= count && i <= rec->count; i++) {
                 _libmsi_record_copy_field(refreshed, i, rec, i);
             }
             g_object_unref(refreshed);
-            return ERROR_SUCCESS;
+            ret = ERROR_SUCCESS;
+            break;
         }
 
-        case MSIMODIFY_INSERT: {
-            if (!view->ops->insert_row)
-                return ERROR_FUNCTION_FAILED;
-            r = view->ops->insert_row(view, rec, -1, false);
-            return r;
-        }
+        case MSIMODIFY_INSERT:
+            if (!view->ops->insert_row) { ret = ERROR_FUNCTION_FAILED; break; }
+            ret = view->ops->insert_row(view, rec, -1, false);
+            break;
 
-        case MSIMODIFY_UPDATE: {
-            if (!view->ops->set_row)
-                return ERROR_FUNCTION_FAILED;
-            if (query->row == 0)
-                return ERROR_FUNCTION_FAILED;
-            r = view->ops->set_row(view, query->row - 1, rec, ~0u);
-            return r;
-        }
+        case MSIMODIFY_UPDATE:
+            if (!view->ops->set_row || query->row == 0) { ret = ERROR_FUNCTION_FAILED; break; }
+            ret = view->ops->set_row(view, query->row - 1, rec, ~0u);
+            break;
 
-        case MSIMODIFY_ASSIGN: {
-            /* Try insert first; if duplicate key, fall back to update */
+        case MSIMODIFY_ASSIGN:
             if (view->ops->insert_row) {
                 r = view->ops->insert_row(view, rec, -1, false);
-                if (r == ERROR_SUCCESS)
-                    return r;
+                if (r == ERROR_SUCCESS) { ret = r; break; }
             }
-            /* Fall back to set_row */
-            if (!view->ops->set_row)
-                return ERROR_FUNCTION_FAILED;
-            if (query->row == 0)
-                return ERROR_FUNCTION_FAILED;
-            r = view->ops->set_row(view, query->row - 1, rec, ~0u);
-            return r;
-        }
+            if (!view->ops->set_row || query->row == 0) { ret = ERROR_FUNCTION_FAILED; break; }
+            ret = view->ops->set_row(view, query->row - 1, rec, ~0u);
+            break;
 
-        case MSIMODIFY_REPLACE: {
-            /* Similar to UPDATE */
-            if (!view->ops->set_row)
-                return ERROR_FUNCTION_FAILED;
-            if (query->row == 0)
-                return ERROR_FUNCTION_FAILED;
-            r = view->ops->set_row(view, query->row - 1, rec, ~0u);
-            return r;
-        }
+        case MSIMODIFY_REPLACE:
+            if (!view->ops->set_row || query->row == 0) { ret = ERROR_FUNCTION_FAILED; break; }
+            ret = view->ops->set_row(view, query->row - 1, rec, ~0u);
+            break;
 
-        case MSIMODIFY_MERGE: {
-            /* Try insert; if duplicate key error, just succeed silently */
-            if (!view->ops->insert_row)
-                return ERROR_FUNCTION_FAILED;
+        case MSIMODIFY_MERGE:
+            if (!view->ops->insert_row) { ret = ERROR_FUNCTION_FAILED; break; }
             r = view->ops->insert_row(view, rec, -1, false);
-            if (r == ERROR_FUNCTION_FAILED || r == ERROR_INVALID_DATA)
-                return ERROR_SUCCESS; /* duplicate key - merge is a no-op */
-            return r;
-        }
+            ret = (r == ERROR_FUNCTION_FAILED || r == ERROR_INVALID_DATA) ? ERROR_SUCCESS : r;
+            break;
 
-        case MSIMODIFY_DELETE: {
-            if (!view->ops->delete_row)
-                return ERROR_FUNCTION_FAILED;
-            if (query->row == 0)
-                return ERROR_FUNCTION_FAILED;
-            r = view->ops->delete_row(view, query->row - 1);
-            return r;
-        }
+        case MSIMODIFY_DELETE:
+            if (!view->ops->delete_row || query->row == 0) { ret = ERROR_FUNCTION_FAILED; break; }
+            ret = view->ops->delete_row(view, query->row - 1);
+            break;
 
-        case MSIMODIFY_INSERT_TEMPORARY: {
-            if (!view->ops->insert_row)
-                return ERROR_FUNCTION_FAILED;
-            r = view->ops->insert_row(view, rec, -1, true);
-            return r;
-        }
+        case MSIMODIFY_INSERT_TEMPORARY:
+            if (!view->ops->insert_row) { ret = ERROR_FUNCTION_FAILED; break; }
+            ret = view->ops->insert_row(view, rec, -1, true);
+            break;
 
         case MSIMODIFY_VALIDATE:
         case MSIMODIFY_VALIDATE_NEW:
         case MSIMODIFY_VALIDATE_FIELD:
         case MSIMODIFY_VALIDATE_DELETE:
-            /* Validation modes - not implemented, return success */
-            return ERROR_SUCCESS;
+            ret = ERROR_SUCCESS;
+            break;
 
-        case MSIMODIFY_SEEK: {
-            /*
-             * MSIMODIFY_SEEK: position the cursor based on primary key lookup.
-             * This is rarely used; for now just return success without seeking.
-             */
-            return ERROR_FUNCTION_FAILED;
-        }
+        case MSIMODIFY_SEEK:
+            ret = ERROR_FUNCTION_FAILED;
+            break;
 
         default:
-            return ERROR_INVALID_PARAMETER;
+            ret = ERROR_INVALID_PARAMETER;
+            break;
     }
+
+    g_object_unref(query);
+    g_object_unref(rec);
+    return ret;
 }
 
 /* ========================================================================== */
@@ -319,6 +308,8 @@ UINT WINAPI MsiViewGetColumnInfo(MSIHANDLE hView, MSICOLINFO eColumnInfo, MSIHAN
 
     GError *error = NULL;
     LibmsiRecord *rec = libmsi_query_get_column_info(query, (LibmsiColInfo)eColumnInfo, &error);
+    g_object_unref(query);
+
     if (!rec)
         return gerror_to_msi(error);
 
@@ -343,6 +334,8 @@ UINT WINAPI MsiViewClose(MSIHANDLE hView)
 
     GError *error = NULL;
     gboolean ok = libmsi_query_close(query, &error);
+    g_object_unref(query);
+
     if (!ok)
         return gerror_to_msi(error);
 
@@ -361,8 +354,10 @@ MSIDBERROR WINAPI MsiViewGetErrorA(MSIHANDLE hView, LPSTR szColumnNameBuffer, LP
 
     /* Read the error directly from the internal view structure */
     LibmsiView *view = query->view;
-    if (!view)
+    if (!view) {
+        g_object_unref(query);
         return MSIDBERROR_INVALIDARG;
+    }
 
     LibmsiDBError dberr = view->error;
     const char *col = view->error_column;
@@ -374,6 +369,7 @@ MSIDBERROR WINAPI MsiViewGetErrorA(MSIHANDLE hView, LPSTR szColumnNameBuffer, LP
         copy_string_to_bufA("", szColumnNameBuffer, pcchBuf);
     }
 
+    g_object_unref(query);
     return libmsi_dberror_to_msi(dberr);
 }
 
@@ -385,8 +381,10 @@ MSIDBERROR WINAPI MsiViewGetErrorW(MSIHANDLE hView, LPWSTR szColumnNameBuffer, L
 
     /* Read the error directly from the internal view structure */
     LibmsiView *view = query->view;
-    if (!view)
+    if (!view) {
+        g_object_unref(query);
         return MSIDBERROR_INVALIDARG;
+    }
 
     LibmsiDBError dberr = view->error;
     const char *col = view->error_column;
@@ -398,5 +396,6 @@ MSIDBERROR WINAPI MsiViewGetErrorW(MSIHANDLE hView, LPWSTR szColumnNameBuffer, L
         copy_string_to_bufW("", (WCHAR *)szColumnNameBuffer, pcchBuf);
     }
 
+    g_object_unref(query);
     return libmsi_dberror_to_msi(dberr);
 }

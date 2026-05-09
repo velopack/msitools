@@ -181,7 +181,10 @@ MsiDatabaseCommit(MSIHANDLE hDatabase)
         return ERROR_INVALID_HANDLE;
 
     GError *error = NULL;
-    if (!libmsi_database_commit(db, &error))
+    gboolean ok = libmsi_database_commit(db, &error);
+    g_object_unref(db);
+
+    if (!ok)
         return gerror_to_msi(error);
 
     return ERROR_SUCCESS;
@@ -198,10 +201,9 @@ MsiGetDatabaseState(MSIHANDLE hDatabase)
     if (!db)
         return MSIDBSTATE_ERROR;
 
-    if (libmsi_database_is_readonly(db))
-        return MSIDBSTATE_READ;
-
-    return MSIDBSTATE_WRITE;
+    MSIDBSTATE ret = libmsi_database_is_readonly(db) ? MSIDBSTATE_READ : MSIDBSTATE_WRITE;
+    g_object_unref(db);
+    return ret;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -220,6 +222,8 @@ MsiDatabaseGetPrimaryKeysA(MSIHANDLE hDatabase, LPCSTR szTableName, MSIHANDLE *p
 
     GError *error = NULL;
     LibmsiRecord *rec = libmsi_database_get_primary_keys(db, szTableName, &error);
+    g_object_unref(db);
+
     if (!rec)
         return gerror_to_msi(error);
 
@@ -264,6 +268,8 @@ MsiDatabaseIsTablePersistentA(MSIHANDLE hDatabase, LPCSTR szTableName)
 
     GError *error = NULL;
     gboolean persistent = libmsi_database_is_table_persistent(db, szTableName, &error);
+    g_object_unref(db);
+
     if (error) {
         g_error_free(error);
         return MSICONDITION_ERROR;
@@ -307,6 +313,7 @@ MsiDatabaseImportA(MSIHANDLE hDatabase, LPCSTR szFolderPath, LPCSTR szFileName)
     GError *error = NULL;
     gboolean ok = libmsi_database_import(db, full_path, &error);
     g_free(full_path);
+    g_object_unref(db);
 
     if (!ok)
         return gerror_to_msi(error);
@@ -360,8 +367,10 @@ MsiDatabaseExportA(MSIHANDLE hDatabase, LPCSTR szTableName, LPCSTR szFolderPath,
 #endif
     g_free(full_path);
 
-    if (fd < 0)
+    if (fd < 0) {
+        g_object_unref(db);
         return ERROR_FUNCTION_FAILED;
+    }
 
     GError *error = NULL;
     gboolean ok = libmsi_database_export(db, szTableName, fd, &error);
@@ -371,6 +380,8 @@ MsiDatabaseExportA(MSIHANDLE hDatabase, LPCSTR szTableName, LPCSTR szFolderPath,
 #else
     close(fd);
 #endif
+
+    g_object_unref(db);
 
     if (!ok)
         return gerror_to_msi(error);
@@ -415,11 +426,17 @@ MsiDatabaseMergeA(MSIHANDLE hDatabase, MSIHANDLE hDatabaseMerge, LPCSTR szTableN
         return ERROR_INVALID_HANDLE;
 
     LibmsiDatabase *db_merge = (LibmsiDatabase *)handle_table_get_typed(hDatabaseMerge, HANDLE_DATABASE);
-    if (!db_merge)
+    if (!db_merge) {
+        g_object_unref(db);
         return ERROR_INVALID_HANDLE;
+    }
 
     GError *error = NULL;
-    if (!libmsi_database_merge(db, db_merge, szTableName, &error))
+    gboolean ok = libmsi_database_merge(db, db_merge, szTableName, &error);
+    g_object_unref(db);
+    g_object_unref(db_merge);
+
+    if (!ok)
         return gerror_to_msi(error);
 
     return ERROR_SUCCESS;
@@ -457,7 +474,10 @@ MsiDatabaseApplyTransformA(MSIHANDLE hDatabase, LPCSTR szTransformFile,
         return ERROR_INVALID_HANDLE;
 
     GError *error = NULL;
-    if (!libmsi_database_apply_transform(db, szTransformFile, &error))
+    gboolean ok = libmsi_database_apply_transform(db, szTransformFile, &error);
+    g_object_unref(db);
+
+    if (!ok)
         return gerror_to_msi(error);
 
     return ERROR_SUCCESS;

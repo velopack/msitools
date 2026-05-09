@@ -151,7 +151,9 @@ MsiRecordIsNull(MSIHANDLE hRecord, UINT iField)
     if (!rec)
         return TRUE;
 
-    return libmsi_record_is_null(rec, iField) ? TRUE : FALSE;
+    BOOL ret = libmsi_record_is_null(rec, iField) ? TRUE : FALSE;
+    g_object_unref(rec);
+    return ret;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -166,25 +168,31 @@ MsiRecordDataSize(MSIHANDLE hRecord, UINT iField)
         return 0;
 
     /* Access the internal structure to determine the field type */
-    if (iField > rec->count)
-        return 0;
-
-    LibmsiField *field = &rec->fields[iField];
-
-    switch (field->type) {
-    case LIBMSI_FIELD_TYPE_NULL:
-        return 0;
-    case LIBMSI_FIELD_TYPE_INT:
-        return sizeof(int);
-    case LIBMSI_FIELD_TYPE_STR:
-        return field->u.szVal ? (UINT)strlen(field->u.szVal) : 0;
-    case LIBMSI_FIELD_TYPE_STREAM:
-        if (field->u.stream)
-            return (UINT)gsf_input_size(field->u.stream);
-        return 0;
-    default:
+    if (iField > rec->count) {
+        g_object_unref(rec);
         return 0;
     }
+
+    LibmsiField *field = &rec->fields[iField];
+    UINT ret;
+
+    switch (field->type) {
+    case LIBMSI_FIELD_TYPE_INT:
+        ret = sizeof(int);
+        break;
+    case LIBMSI_FIELD_TYPE_STR:
+        ret = field->u.szVal ? (UINT)strlen(field->u.szVal) : 0;
+        break;
+    case LIBMSI_FIELD_TYPE_STREAM:
+        ret = field->u.stream ? (UINT)gsf_input_size(field->u.stream) : 0;
+        break;
+    default:
+        ret = 0;
+        break;
+    }
+
+    g_object_unref(rec);
+    return ret;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -199,6 +207,7 @@ MsiRecordSetInteger(MSIHANDLE hRecord, UINT iField, int iValue)
         return ERROR_INVALID_HANDLE;
 
     gboolean ok = libmsi_record_set_int(rec, iField, iValue);
+    g_object_unref(rec);
     return ok ? ERROR_SUCCESS : ERROR_INVALID_FIELD;
 }
 
@@ -214,6 +223,7 @@ MsiRecordSetStringA(MSIHANDLE hRecord, UINT iField, LPCSTR szValue)
         return ERROR_INVALID_HANDLE;
 
     gboolean ok = libmsi_record_set_string(rec, iField, szValue ? szValue : "");
+    g_object_unref(rec);
     return ok ? ERROR_SUCCESS : ERROR_INVALID_FIELD;
 }
 
@@ -243,7 +253,9 @@ MsiRecordGetInteger(MSIHANDLE hRecord, UINT iField)
     if (!rec)
         return MSI_NULL_INTEGER;
 
-    return libmsi_record_get_int(rec, iField);
+    int ret = libmsi_record_get_int(rec, iField);
+    g_object_unref(rec);
+    return ret;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -258,6 +270,8 @@ MsiRecordGetStringA(MSIHANDLE hRecord, UINT iField, LPSTR szValueBuf, LPDWORD pc
         return ERROR_INVALID_HANDLE;
 
     gchar *str = libmsi_record_get_string(rec, iField);
+    g_object_unref(rec);
+
     if (!str)
         str = g_strdup("");
 
@@ -274,6 +288,8 @@ MsiRecordGetStringW(MSIHANDLE hRecord, UINT iField, LPWSTR szValueBuf, LPDWORD p
         return ERROR_INVALID_HANDLE;
 
     gchar *str = libmsi_record_get_string(rec, iField);
+    g_object_unref(rec);
+
     if (!str)
         str = g_strdup("");
 
@@ -293,7 +309,9 @@ MsiRecordGetFieldCount(MSIHANDLE hRecord)
     if (!rec)
         return (UINT)-1;
 
-    return libmsi_record_get_field_count(rec);
+    UINT ret = libmsi_record_get_field_count(rec);
+    g_object_unref(rec);
+    return ret;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -308,6 +326,7 @@ MsiRecordSetStreamA(MSIHANDLE hRecord, UINT iField, LPCSTR szFilePath)
         return ERROR_INVALID_HANDLE;
 
     gboolean ok = libmsi_record_load_stream(rec, iField, szFilePath);
+    g_object_unref(rec);
     return ok ? ERROR_SUCCESS : ERROR_FUNCTION_FAILED;
 }
 
@@ -337,20 +356,18 @@ MsiRecordReadStream(MSIHANDLE hRecord, UINT iField, char *szDataBuf, LPDWORD pcb
     if (!rec)
         return ERROR_INVALID_HANDLE;
 
-    if (!pcbDataBuf)
+    if (!pcbDataBuf) {
+        g_object_unref(rec);
         return ERROR_INVALID_PARAMETER;
+    }
 
     GInputStream *stream = libmsi_record_get_stream(rec, iField);
-    if (!stream)
+    if (!stream) {
+        g_object_unref(rec);
         return ERROR_INVALID_FIELD;
+    }
 
     if (!szDataBuf) {
-        /*
-         * Caller is querying the remaining size.
-         * The GInputStream wraps a GsfInput -- we can't easily get its total
-         * remaining size from GInputStream alone, so we use the internal
-         * GsfInput directly for sizing.
-         */
         if (iField <= rec->count &&
             rec->fields[iField].type == LIBMSI_FIELD_TYPE_STREAM &&
             rec->fields[iField].u.stream) {
@@ -361,6 +378,7 @@ MsiRecordReadStream(MSIHANDLE hRecord, UINT iField, char *szDataBuf, LPDWORD pcb
             *pcbDataBuf = 0;
         }
         g_object_unref(stream);
+        g_object_unref(rec);
         return ERROR_SUCCESS;
     }
 
@@ -368,6 +386,7 @@ MsiRecordReadStream(MSIHANDLE hRecord, UINT iField, char *szDataBuf, LPDWORD pcb
     gssize bytes_read = g_input_stream_read(stream, szDataBuf, *pcbDataBuf,
                                             NULL, &error);
     g_object_unref(stream);
+    g_object_unref(rec);
 
     if (bytes_read < 0) {
         if (error)
@@ -392,6 +411,7 @@ MsiRecordClearData(MSIHANDLE hRecord)
         return ERROR_INVALID_HANDLE;
 
     gboolean ok = libmsi_record_clear(rec);
+    g_object_unref(rec);
     return ok ? ERROR_SUCCESS : ERROR_FUNCTION_FAILED;
 }
 
@@ -496,6 +516,8 @@ MsiFormatRecordA(MSIHANDLE hInstall, MSIHANDLE hRecord, LPSTR szResultBuf, LPDWO
         return ERROR_INVALID_HANDLE;
 
     gchar *formatted = format_record_impl(rec);
+    g_object_unref(rec);
+
     if (!formatted)
         formatted = g_strdup("");
 
@@ -514,6 +536,8 @@ MsiFormatRecordW(MSIHANDLE hInstall, MSIHANDLE hRecord, LPWSTR szResultBuf, LPDW
         return ERROR_INVALID_HANDLE;
 
     gchar *formatted = format_record_impl(rec);
+    g_object_unref(rec);
+
     if (!formatted)
         formatted = g_strdup("");
 
