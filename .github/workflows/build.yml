@@ -69,18 +69,18 @@ jobs:
         shell: msys2 {0}
         run: |
           (cd builddir && ar t libmsi-1.0.a | tr -d '\r' | xargs ar rcs libmsi.a)
-          cp builddir/libmsi.a libmsi-win-${{ matrix.arch }}.a
+          cp builddir/libmsi.a libmsi-win-${{ matrix.arch }}.lib
           cp builddir/libmsi.dll libmsi-win-${{ matrix.arch }}.dll
-          cp builddir/libmsi.dll.a libmsi-win-${{ matrix.arch }}.dll.a
+          cp builddir/libmsi.dll.a libmsi-win-${{ matrix.arch }}.dll.lib
 
       - uses: actions/upload-artifact@v4
         with:
           name: build-win-${{ matrix.arch }}
           path: |
             wixl-win-${{ matrix.arch }}.exe
-            libmsi-win-${{ matrix.arch }}.a
+            libmsi-win-${{ matrix.arch }}.lib
             libmsi-win-${{ matrix.arch }}.dll
-            libmsi-win-${{ matrix.arch }}.dll.a
+            libmsi-win-${{ matrix.arch }}.dll.lib
           retention-days: 1
 
   linux:

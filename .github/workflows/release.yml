@@ -63,15 +63,15 @@ jobs:
             release/wixl-linux-x64 \
             release/wixl-linux-arm64 \
             release/wixl-osx-universal \
-            release/libmsi-win-x86.a \
+            release/libmsi-win-x86.lib \
             release/libmsi-win-x86.dll \
-            release/libmsi-win-x86.dll.a \
-            release/libmsi-win-x64.a \
+            release/libmsi-win-x86.dll.lib \
+            release/libmsi-win-x64.lib \
             release/libmsi-win-x64.dll \
-            release/libmsi-win-x64.dll.a \
-            release/libmsi-win-arm64.a \
+            release/libmsi-win-x64.dll.lib \
+            release/libmsi-win-arm64.lib \
             release/libmsi-win-arm64.dll \
-            release/libmsi-win-arm64.dll.a \
+            release/libmsi-win-arm64.dll.lib \
             release/libmsi-linux-x64.a \
             release/libmsi-linux-x64.so \
             release/libmsi-linux-arm64.a \
