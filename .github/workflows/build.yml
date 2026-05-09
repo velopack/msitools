@@ -2,15 +2,15 @@ name: Build
 
 on:
   push:
-    branches: [master, develop]
+    # branches: [master, develop]
   pull_request:
-    branches: [master, develop]
+    # branches: [master, develop]
   workflow_dispatch:
   workflow_call:
 
 jobs:
   windows:
-    runs-on: windows-latest
+    runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
       matrix:
@@ -18,9 +18,21 @@ jobs:
           - arch: x86
             msystem: MINGW32
             prefix: mingw-w64-i686
+            runner: windows-latest
+            compiler_pkg: mingw-w64-i686-gcc
+            vala_pkg: mingw-w64-ucrt-x86_64-vala
           - arch: x64
             msystem: UCRT64
             prefix: mingw-w64-ucrt-x86_64
+            runner: windows-latest
+            compiler_pkg: mingw-w64-ucrt-x86_64-gcc
+            vala_pkg: mingw-w64-ucrt-x86_64-vala
+          - arch: arm64
+            msystem: CLANGARM64
+            prefix: mingw-w64-clang-aarch64
+            runner: windows-11-arm
+            compiler_pkg: mingw-w64-clang-aarch64-clang
+            vala_pkg: mingw-w64-clang-aarch64-vala
 
     steps:
       - uses: actions/checkout@v4
@@ -31,18 +43,18 @@ jobs:
         with:
           msystem: ${{ matrix.msystem }}
           install: >-
-            ${{ matrix.prefix }}-gcc
+            ${{ matrix.compiler_pkg }}
             ${{ matrix.prefix }}-meson
             ${{ matrix.prefix }}-pkgconf
             ${{ matrix.prefix }}-glib2
             ${{ matrix.prefix }}-libxml2
-            mingw-w64-ucrt-x86_64-vala
+            ${{ matrix.vala_pkg }}
             bison
 
       - name: Build
         shell: msys2 {0}
         run: |
-          export PATH="/${{ matrix.msystem }}:/ucrt64/bin:$PATH"
+          export PATH="/${MSYSTEM,,}/bin:/ucrt64/bin:$PATH"
           export XDG_DATA_DIRS="/ucrt64/share:/${MSYSTEM,,}/share:/usr/share"
           meson setup builddir --default-library=static --prefer-static
           meson compile -C builddir
@@ -175,6 +187,7 @@ jobs:
           mkdir release
           mv wixl-win-x86.exe release/
           mv wixl-win-x64.exe release/
+          mv wixl-win-arm64.exe release/
           mv wixl-linux-x64 release/
           mv wixl-linux-arm64 release/
           mv wixl-osx-universal release/
