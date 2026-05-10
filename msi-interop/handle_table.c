@@ -4,6 +4,21 @@
 #include <stdlib.h>
 #include "libmsi.h"
 
+#ifdef _WIN32
+#include <windows.h>
+static volatile LONG g_process_detaching = 0;
+
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
+{
+    (void)hinstDLL;
+    (void)lpvReserved;
+    if (fdwReason == DLL_PROCESS_DETACH) {
+        InterlockedExchange(&g_process_detaching, 1);
+    }
+    return TRUE;
+}
+#endif
+
 typedef struct {
     GObject *obj;
     HandleType type;
@@ -227,8 +242,12 @@ handle_table_close(MSIHANDLE handle)
 
     g_mutex_unlock(&table_mutex);
 
-    // Unref outside the lock to avoid potential deadlocks from destroy callbacks
-    g_object_unref(obj);
+#ifdef _WIN32
+    if (!InterlockedCompareExchange(&g_process_detaching, 0, 0))
+#endif
+    {
+        g_object_unref(obj);
+    }
 
     return 0;
 }
@@ -274,13 +293,6 @@ handle_table_close_all(void)
     return count;
 }
 
-static void
-handle_table_atexit_cleanup(void)
-{
-    handle_table_close_all();
-    gsf_shutdown();
-}
-
 __attribute__((constructor))
 static void
 handle_table_auto_init(void)
@@ -291,5 +303,4 @@ handle_table_auto_init(void)
     g_type_ensure(libmsi_record_get_type());
     g_type_ensure(libmsi_summary_info_get_type());
     handle_table_init();
-    atexit(handle_table_atexit_cleanup);
 }
