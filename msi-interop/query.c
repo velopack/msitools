@@ -91,14 +91,21 @@ UINT WINAPI MsiDatabaseOpenViewA(MSIHANDLE hDatabase, LPCSTR szQuery, MSIHANDLE 
     if (!db)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     LibmsiQuery *query = libmsi_query_new(db, szQuery, &error);
     g_object_unref(db);
-    if (!query)
+    if (!query) {
+        libmsi_global_unlock();
         return gerror_to_msi(error);
+    }
 
     MSIHANDLE h = handle_table_alloc(G_OBJECT(query), HANDLE_QUERY);
     g_object_unref(query); /* handle table took a ref */
+
+    libmsi_global_unlock();
+
     if (!h)
         return ERROR_FUNCTION_FAILED;
 
@@ -139,14 +146,18 @@ UINT WINAPI MsiViewExecute(MSIHANDLE hView, MSIHANDLE hRecord)
         }
     }
 
-    GError *error = NULL;
-    gboolean ok = libmsi_query_execute(query, rec, &error);
+    /* Use internal API to avoid redundant GObject ref/unref/type-check overhead */
+    libmsi_global_lock();
+
+    unsigned r = _libmsi_query_execute(query, rec);
 
     g_object_unref(query);
     if (rec) g_object_unref(rec);
 
-    if (!ok)
-        return gerror_to_msi(error);
+    libmsi_global_unlock();
+
+    if (r != LIBMSI_RESULT_SUCCESS)
+        return ERROR_FUNCTION_FAILED;
 
     return ERROR_SUCCESS;
 }
@@ -164,24 +175,35 @@ UINT WINAPI MsiViewFetch(MSIHANDLE hView, MSIHANDLE *phRecord)
     if (!query)
         return ERROR_INVALID_HANDLE;
 
-    if (!query->view || !query->view->ops || !query->database) {
-        g_object_unref(query);
-        return ERROR_FUNCTION_FAILED;
-    }
+    /*
+     * Call the internal _libmsi_query_fetch directly instead of the public
+     * libmsi_query_fetch wrapper.  The public API does g_return_val_if_fail
+     * (LIBMSI_IS_QUERY) which dereferences GObject class pointers and an
+     * extra g_object_ref/unref cycle -- both unnecessary since we already
+     * hold a valid ref from handle_table_get_typed.  Bypassing the public
+     * wrapper avoids potential issues with the GObject type-check machinery.
+     */
+    libmsi_global_lock();
 
-    GError *error = NULL;
-    LibmsiRecord *rec = libmsi_query_fetch(query, &error);
+    LibmsiRecord *rec = NULL;
+    unsigned ret = _libmsi_query_fetch(query, &rec);
     g_object_unref(query);
 
-    if (!rec) {
-        if (error) {
-            return gerror_to_msi(error);
-        }
+    if (ret == NO_MORE_ITEMS) {
+        libmsi_global_unlock();
         return ERROR_NO_MORE_ITEMS;
+    }
+
+    if (ret != LIBMSI_RESULT_SUCCESS || !rec) {
+        libmsi_global_unlock();
+        return ERROR_FUNCTION_FAILED;
     }
 
     MSIHANDLE h = handle_table_alloc(G_OBJECT(rec), HANDLE_RECORD);
     g_object_unref(rec); /* handle table took a ref */
+
+    libmsi_global_unlock();
+
     if (!h)
         return ERROR_FUNCTION_FAILED;
 
@@ -205,11 +227,14 @@ UINT WINAPI MsiViewModify(MSIHANDLE hView, MSIMODIFY eModifyMode, MSIHANDLE hRec
         return ERROR_INVALID_HANDLE;
     }
 
+    libmsi_global_lock();
+
     /* Access internal query view */
     LibmsiView *view = query->view;
     if (!view || !view->ops) {
         g_object_unref(query);
         g_object_unref(rec);
+        libmsi_global_unlock();
         return ERROR_FUNCTION_FAILED;
     }
 
@@ -295,6 +320,9 @@ UINT WINAPI MsiViewModify(MSIHANDLE hView, MSIMODIFY eModifyMode, MSIHANDLE hRec
 
     g_object_unref(query);
     g_object_unref(rec);
+
+    libmsi_global_unlock();
+
     return ret;
 }
 
@@ -311,15 +339,23 @@ UINT WINAPI MsiViewGetColumnInfo(MSIHANDLE hView, MSICOLINFO eColumnInfo, MSIHAN
     if (!query)
         return ERROR_INVALID_HANDLE;
 
-    GError *error = NULL;
-    LibmsiRecord *rec = libmsi_query_get_column_info(query, (LibmsiColInfo)eColumnInfo, &error);
+    /* Use internal API to avoid redundant GObject ref/unref/type-check overhead */
+    libmsi_global_lock();
+
+    LibmsiRecord *rec = NULL;
+    unsigned r = _libmsi_query_get_column_info(query, (LibmsiColInfo)eColumnInfo, &rec);
     g_object_unref(query);
 
-    if (!rec)
-        return gerror_to_msi(error);
+    if (r != LIBMSI_RESULT_SUCCESS || !rec) {
+        libmsi_global_unlock();
+        return ERROR_FUNCTION_FAILED;
+    }
 
     MSIHANDLE h = handle_table_alloc(G_OBJECT(rec), HANDLE_RECORD);
     g_object_unref(rec); /* handle table took a ref */
+
+    libmsi_global_unlock();
+
     if (!h)
         return ERROR_FUNCTION_FAILED;
 
@@ -337,12 +373,23 @@ UINT WINAPI MsiViewClose(MSIHANDLE hView)
     if (!query)
         return ERROR_INVALID_HANDLE;
 
-    GError *error = NULL;
-    gboolean ok = libmsi_query_close(query, &error);
+    /* Call the view's close operation directly instead of libmsi_query_close,
+     * which has a ref-count leak bug on early-return error paths (it does
+     * g_object_ref but returns without g_object_unref when view is NULL or
+     * view->ops->close is NULL). */
+    libmsi_global_lock();
+
+    LibmsiView *view = query->view;
+    unsigned r = LIBMSI_RESULT_SUCCESS;
+    if (view && view->ops && view->ops->close)
+        r = view->ops->close(view);
+
     g_object_unref(query);
 
-    if (!ok)
-        return gerror_to_msi(error);
+    libmsi_global_unlock();
+
+    if (r != LIBMSI_RESULT_SUCCESS)
+        return ERROR_FUNCTION_FAILED;
 
     return ERROR_SUCCESS;
 }
@@ -357,10 +404,13 @@ MSIDBERROR WINAPI MsiViewGetErrorA(MSIHANDLE hView, LPSTR szColumnNameBuffer, LP
     if (!query)
         return MSIDBERROR_INVALIDARG;
 
+    libmsi_global_lock();
+
     /* Read the error directly from the internal view structure */
     LibmsiView *view = query->view;
     if (!view) {
         g_object_unref(query);
+        libmsi_global_unlock();
         return MSIDBERROR_INVALIDARG;
     }
 
@@ -375,6 +425,8 @@ MSIDBERROR WINAPI MsiViewGetErrorA(MSIHANDLE hView, LPSTR szColumnNameBuffer, LP
     }
 
     g_object_unref(query);
+    libmsi_global_unlock();
+
     return libmsi_dberror_to_msi(dberr);
 }
 
@@ -384,10 +436,13 @@ MSIDBERROR WINAPI MsiViewGetErrorW(MSIHANDLE hView, LPWSTR szColumnNameBuffer, L
     if (!query)
         return MSIDBERROR_INVALIDARG;
 
+    libmsi_global_lock();
+
     /* Read the error directly from the internal view structure */
     LibmsiView *view = query->view;
     if (!view) {
         g_object_unref(query);
+        libmsi_global_unlock();
         return MSIDBERROR_INVALIDARG;
     }
 
@@ -402,5 +457,7 @@ MSIDBERROR WINAPI MsiViewGetErrorW(MSIHANDLE hView, LPWSTR szColumnNameBuffer, L
     }
 
     g_object_unref(query);
+    libmsi_global_unlock();
+
     return libmsi_dberror_to_msi(dberr);
 }

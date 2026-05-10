@@ -31,4 +31,10 @@ unsigned int handle_table_close(MSIHANDLE handle);
 // Close all handles, unrefs all GObjects. Returns count of handles that were open.
 unsigned int handle_table_close_all(void);
 
+// Global recursive mutex protecting ALL calls into libmsi/libgsf.
+// Must be held around every libmsi API call to prevent concurrent access
+// to the non-thread-safe GObject type system and libgsf storage layer.
+void libmsi_global_lock(void);
+void libmsi_global_unlock(void);
+
 #endif

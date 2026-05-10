@@ -21,6 +21,36 @@ static guint free_list_count = 0;
 static GMutex table_mutex;
 static gboolean initialized = FALSE;
 
+/*
+ * Global recursive mutex that serializes ALL calls into libmsi and libgsf.
+ *
+ * Neither libmsi nor libgsf is thread-safe:
+ *  - Every public libmsi_* function does g_return_val_if_fail(LIBMSI_IS_*)
+ *    which exercises the GObject type system concurrently.
+ *  - libmsi_database_new calls g_object_new(LIBMSI_TYPE_DATABASE, ...) and
+ *    then opens OLE compound files via libgsf, which has no internal locking.
+ *  - Summary info, query, and record operations all touch shared database
+ *    state (string pools, table lists, streams) without synchronization.
+ *
+ * A single GRecMutex protects all libmsi/libgsf calls.  It must be recursive
+ * because our W-suffix functions call their A-suffix counterparts (e.g.
+ * MsiOpenDatabaseW -> MsiOpenDatabaseA), and MsiGetSummaryInformationA
+ * may internally call MsiOpenDatabaseA when hDatabase == 0.
+ */
+static GRecMutex libmsi_mutex;
+
+void
+libmsi_global_lock(void)
+{
+    g_rec_mutex_lock(&libmsi_mutex);
+}
+
+void
+libmsi_global_unlock(void)
+{
+    g_rec_mutex_unlock(&libmsi_mutex);
+}
+
 #define INITIAL_CAPACITY 64
 
 void

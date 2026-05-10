@@ -142,14 +142,21 @@ MsiGetSummaryInformationA(MSIHANDLE hDatabase, LPCSTR szDatabasePath,
         opened_db = FALSE;
     } else {
         /* Open a temporary database from the given path */
+        libmsi_global_lock();
         GError *error = NULL;
         guint flags = (uiUpdateCount > 0) ? LIBMSI_DB_FLAGS_TRANSACT
                                           : LIBMSI_DB_FLAGS_READONLY;
         db = libmsi_database_new(szDatabasePath, flags, NULL, &error);
-        if (!db)
+        if (!db) {
+            libmsi_global_unlock();
             return gerror_to_msi(error);
+        }
         opened_db = TRUE;
+        /* Lock is still held -- will be released below after summary info creation */
     }
+
+    if (!opened_db)
+        libmsi_global_lock();
 
     GError *error = NULL;
     LibmsiSummaryInfo *si = libmsi_summary_info_new(db, uiUpdateCount, &error);
@@ -157,11 +164,15 @@ MsiGetSummaryInformationA(MSIHANDLE hDatabase, LPCSTR szDatabasePath,
     /* Always unref db: either we opened it (opened_db) or handle_table_get_typed added a ref */
     g_object_unref(db);
 
-    if (!si)
+    if (!si) {
+        libmsi_global_unlock();
         return gerror_to_msi(error);
+    }
 
     MSIHANDLE handle = handle_table_alloc(G_OBJECT(si), HANDLE_SUMMARY_INFO);
     g_object_unref(si); /* handle_table_alloc added its own ref */
+
+    libmsi_global_unlock();
 
     if (handle == 0)
         return ERROR_GEN_FAILURE;
@@ -206,8 +217,12 @@ MsiSummaryInfoGetPropertyCount(MSIHANDLE hSummaryInfo, PUINT puiPropertyCount)
     if (!si)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
+
     GArray *props = libmsi_summary_info_get_properties(si);
     g_object_unref(si);
+
+    libmsi_global_unlock();
 
     if (props) {
         *puiPropertyCount = props->len;
@@ -234,6 +249,8 @@ MsiSummaryInfoSetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
     if (!si)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     gboolean ok = FALSE;
     LibmsiProperty prop = (LibmsiProperty)uiProperty;
@@ -251,6 +268,7 @@ MsiSummaryInfoSetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
     case VT_FILETIME:
         if (!pftValue) {
             g_object_unref(si);
+            libmsi_global_unlock();
             return ERROR_INVALID_PARAMETER;
         }
         {
@@ -281,10 +299,13 @@ MsiSummaryInfoSetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
 
     default:
         g_object_unref(si);
+        libmsi_global_unlock();
         return ERROR_INVALID_DATATYPE;
     }
 
     g_object_unref(si);
+
+    libmsi_global_unlock();
 
     if (!ok)
         return gerror_to_msi(error);
@@ -337,11 +358,14 @@ MsiSummaryInfoGetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
         pftValue->dwHighDateTime = 0;
     }
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     LibmsiPropertyType pt = libmsi_summary_info_get_property_type(si, prop,
                                                                    &error);
     if (error) {
         g_object_unref(si);
+        libmsi_global_unlock();
         return gerror_to_msi(error);
     }
 
@@ -358,6 +382,7 @@ MsiSummaryInfoGetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
             *piValue = libmsi_summary_info_get_int(si, prop, &error);
             if (error) {
                 g_object_unref(si);
+                libmsi_global_unlock();
                 return gerror_to_msi(error);
             }
         }
@@ -370,6 +395,7 @@ MsiSummaryInfoGetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
                                                                &error);
             if (error) {
                 g_object_unref(si);
+                libmsi_global_unlock();
                 return gerror_to_msi(error);
             }
 
@@ -383,6 +409,7 @@ MsiSummaryInfoGetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
             guint64 ft = libmsi_summary_info_get_filetime(si, prop, &error);
             if (error) {
                 g_object_unref(si);
+                libmsi_global_unlock();
                 return gerror_to_msi(error);
             }
             pftValue->dwHighDateTime = (DWORD)(ft >> 32);
@@ -396,6 +423,8 @@ MsiSummaryInfoGetPropertyA(MSIHANDLE hSummaryInfo, UINT uiProperty,
     }
 
     g_object_unref(si);
+    libmsi_global_unlock();
+
     return ret;
 }
 
@@ -421,11 +450,14 @@ MsiSummaryInfoGetPropertyW(MSIHANDLE hSummaryInfo, UINT uiProperty,
         pftValue->dwHighDateTime = 0;
     }
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     LibmsiPropertyType pt = libmsi_summary_info_get_property_type(si, prop,
                                                                    &error);
     if (error) {
         g_object_unref(si);
+        libmsi_global_unlock();
         return gerror_to_msi(error);
     }
 
@@ -442,6 +474,7 @@ MsiSummaryInfoGetPropertyW(MSIHANDLE hSummaryInfo, UINT uiProperty,
             *piValue = libmsi_summary_info_get_int(si, prop, &error);
             if (error) {
                 g_object_unref(si);
+                libmsi_global_unlock();
                 return gerror_to_msi(error);
             }
         }
@@ -454,6 +487,7 @@ MsiSummaryInfoGetPropertyW(MSIHANDLE hSummaryInfo, UINT uiProperty,
                                                                &error);
             if (error) {
                 g_object_unref(si);
+                libmsi_global_unlock();
                 return gerror_to_msi(error);
             }
 
@@ -468,6 +502,7 @@ MsiSummaryInfoGetPropertyW(MSIHANDLE hSummaryInfo, UINT uiProperty,
             guint64 ft = libmsi_summary_info_get_filetime(si, prop, &error);
             if (error) {
                 g_object_unref(si);
+                libmsi_global_unlock();
                 return gerror_to_msi(error);
             }
             pftValue->dwHighDateTime = (DWORD)(ft >> 32);
@@ -481,6 +516,8 @@ MsiSummaryInfoGetPropertyW(MSIHANDLE hSummaryInfo, UINT uiProperty,
     }
 
     g_object_unref(si);
+    libmsi_global_unlock();
+
     return ret;
 }
 
@@ -497,9 +534,13 @@ MsiSummaryInfoPersist(MSIHANDLE hSummaryInfo)
     if (!si)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     gboolean ok = libmsi_summary_info_persist(si, &error);
     g_object_unref(si);
+
+    libmsi_global_unlock();
 
     if (!ok)
         return gerror_to_msi(error);

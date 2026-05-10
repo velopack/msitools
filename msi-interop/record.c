@@ -109,7 +109,10 @@ MsiCloseHandle(MSIHANDLE hAny)
     if (hAny == 0)
         return ERROR_SUCCESS;
 
+    libmsi_global_lock();
     unsigned int r = handle_table_close(hAny);
+    libmsi_global_unlock();
+
     return (r == 0) ? ERROR_SUCCESS : ERROR_INVALID_HANDLE;
 }
 
@@ -120,7 +123,11 @@ MsiCloseHandle(MSIHANDLE hAny)
 UINT WINAPI
 MsiCloseAllHandles(void)
 {
-    return handle_table_close_all();
+    libmsi_global_lock();
+    UINT ret = handle_table_close_all();
+    libmsi_global_unlock();
+
+    return ret;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -130,12 +137,18 @@ MsiCloseAllHandles(void)
 MSIHANDLE WINAPI
 MsiCreateRecord(UINT cParams)
 {
+    libmsi_global_lock();
+
     LibmsiRecord *rec = libmsi_record_new(cParams);
-    if (!rec)
+    if (!rec) {
+        libmsi_global_unlock();
         return 0;
+    }
 
     MSIHANDLE handle = handle_table_alloc(G_OBJECT(rec), HANDLE_RECORD);
     g_object_unref(rec); /* handle_table_alloc added its own ref */
+
+    libmsi_global_unlock();
 
     return handle;
 }
@@ -151,8 +164,11 @@ MsiRecordIsNull(MSIHANDLE hRecord, UINT iField)
     if (!rec)
         return TRUE;
 
+    libmsi_global_lock();
     BOOL ret = libmsi_record_is_null(rec, iField) ? TRUE : FALSE;
     g_object_unref(rec);
+    libmsi_global_unlock();
+
     return ret;
 }
 
@@ -167,9 +183,12 @@ MsiRecordDataSize(MSIHANDLE hRecord, UINT iField)
     if (!rec)
         return 0;
 
+    libmsi_global_lock();
+
     /* Access the internal structure to determine the field type */
     if (iField > rec->count) {
         g_object_unref(rec);
+        libmsi_global_unlock();
         return 0;
     }
 
@@ -192,6 +211,8 @@ MsiRecordDataSize(MSIHANDLE hRecord, UINT iField)
     }
 
     g_object_unref(rec);
+    libmsi_global_unlock();
+
     return ret;
 }
 
@@ -206,8 +227,11 @@ MsiRecordSetInteger(MSIHANDLE hRecord, UINT iField, int iValue)
     if (!rec)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
     gboolean ok = libmsi_record_set_int(rec, iField, iValue);
     g_object_unref(rec);
+    libmsi_global_unlock();
+
     return ok ? ERROR_SUCCESS : ERROR_INVALID_FIELD;
 }
 
@@ -222,8 +246,11 @@ MsiRecordSetStringA(MSIHANDLE hRecord, UINT iField, LPCSTR szValue)
     if (!rec)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
     gboolean ok = libmsi_record_set_string(rec, iField, szValue ? szValue : "");
     g_object_unref(rec);
+    libmsi_global_unlock();
+
     return ok ? ERROR_SUCCESS : ERROR_INVALID_FIELD;
 }
 
@@ -253,8 +280,11 @@ MsiRecordGetInteger(MSIHANDLE hRecord, UINT iField)
     if (!rec)
         return MSI_NULL_INTEGER;
 
+    libmsi_global_lock();
     int ret = libmsi_record_get_int(rec, iField);
     g_object_unref(rec);
+    libmsi_global_unlock();
+
     return ret;
 }
 
@@ -269,8 +299,10 @@ MsiRecordGetStringA(MSIHANDLE hRecord, UINT iField, LPSTR szValueBuf, LPDWORD pc
     if (!rec)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
     gchar *str = libmsi_record_get_string(rec, iField);
     g_object_unref(rec);
+    libmsi_global_unlock();
 
     if (!str)
         str = g_strdup("");
@@ -287,8 +319,10 @@ MsiRecordGetStringW(MSIHANDLE hRecord, UINT iField, LPWSTR szValueBuf, LPDWORD p
     if (!rec)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
     gchar *str = libmsi_record_get_string(rec, iField);
     g_object_unref(rec);
+    libmsi_global_unlock();
 
     if (!str)
         str = g_strdup("");
@@ -309,8 +343,11 @@ MsiRecordGetFieldCount(MSIHANDLE hRecord)
     if (!rec)
         return (UINT)-1;
 
+    libmsi_global_lock();
     UINT ret = libmsi_record_get_field_count(rec);
     g_object_unref(rec);
+    libmsi_global_unlock();
+
     return ret;
 }
 
@@ -325,8 +362,11 @@ MsiRecordSetStreamA(MSIHANDLE hRecord, UINT iField, LPCSTR szFilePath)
     if (!rec)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
     gboolean ok = libmsi_record_load_stream(rec, iField, szFilePath);
     g_object_unref(rec);
+    libmsi_global_unlock();
+
     return ok ? ERROR_SUCCESS : ERROR_FUNCTION_FAILED;
 }
 
@@ -361,9 +401,12 @@ MsiRecordReadStream(MSIHANDLE hRecord, UINT iField, char *szDataBuf, LPDWORD pcb
         return ERROR_INVALID_PARAMETER;
     }
 
+    libmsi_global_lock();
+
     GInputStream *stream = libmsi_record_get_stream(rec, iField);
     if (!stream) {
         g_object_unref(rec);
+        libmsi_global_unlock();
         return ERROR_INVALID_FIELD;
     }
 
@@ -379,6 +422,7 @@ MsiRecordReadStream(MSIHANDLE hRecord, UINT iField, char *szDataBuf, LPDWORD pcb
         }
         g_object_unref(stream);
         g_object_unref(rec);
+        libmsi_global_unlock();
         return ERROR_SUCCESS;
     }
 
@@ -387,6 +431,8 @@ MsiRecordReadStream(MSIHANDLE hRecord, UINT iField, char *szDataBuf, LPDWORD pcb
                                             NULL, &error);
     g_object_unref(stream);
     g_object_unref(rec);
+
+    libmsi_global_unlock();
 
     if (bytes_read < 0) {
         if (error)
@@ -410,8 +456,11 @@ MsiRecordClearData(MSIHANDLE hRecord)
     if (!rec)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
     gboolean ok = libmsi_record_clear(rec);
     g_object_unref(rec);
+    libmsi_global_unlock();
+
     return ok ? ERROR_SUCCESS : ERROR_FUNCTION_FAILED;
 }
 
@@ -515,8 +564,10 @@ MsiFormatRecordA(MSIHANDLE hInstall, MSIHANDLE hRecord, LPSTR szResultBuf, LPDWO
     if (!rec)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
     gchar *formatted = format_record_impl(rec);
     g_object_unref(rec);
+    libmsi_global_unlock();
 
     if (!formatted)
         formatted = g_strdup("");
@@ -535,8 +586,10 @@ MsiFormatRecordW(MSIHANDLE hInstall, MSIHANDLE hRecord, LPWSTR szResultBuf, LPDW
     if (!rec)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
     gchar *formatted = format_record_impl(rec);
     g_object_unref(rec);
+    libmsi_global_unlock();
 
     if (!formatted)
         formatted = g_strdup("");

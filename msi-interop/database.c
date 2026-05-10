@@ -124,14 +124,20 @@ MsiOpenDatabaseA(LPCSTR szDatabasePath, LPCSTR szPersist, MSIHANDLE *phDatabase)
         persist_path = szPersist;
     }
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     LibmsiDatabase *db = libmsi_database_new(szDatabasePath, flags,
                                               persist_path, &error);
-    if (!db)
+    if (!db) {
+        libmsi_global_unlock();
         return gerror_to_msi(error);
+    }
 
     MSIHANDLE handle = handle_table_alloc(G_OBJECT(db), HANDLE_DATABASE);
     g_object_unref(db); /* handle_table_alloc added its own ref */
+
+    libmsi_global_unlock();
 
     if (handle == 0)
         return ERROR_GEN_FAILURE;
@@ -180,9 +186,13 @@ MsiDatabaseCommit(MSIHANDLE hDatabase)
     if (!db)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     gboolean ok = libmsi_database_commit(db, &error);
     g_object_unref(db);
+
+    libmsi_global_unlock();
 
     if (!ok)
         return gerror_to_msi(error);
@@ -201,8 +211,11 @@ MsiGetDatabaseState(MSIHANDLE hDatabase)
     if (!db)
         return MSIDBSTATE_ERROR;
 
+    libmsi_global_lock();
     MSIDBSTATE ret = libmsi_database_is_readonly(db) ? MSIDBSTATE_READ : MSIDBSTATE_WRITE;
     g_object_unref(db);
+    libmsi_global_unlock();
+
     return ret;
 }
 
@@ -220,15 +233,21 @@ MsiDatabaseGetPrimaryKeysA(MSIHANDLE hDatabase, LPCSTR szTableName, MSIHANDLE *p
     if (!db)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     LibmsiRecord *rec = libmsi_database_get_primary_keys(db, szTableName, &error);
     g_object_unref(db);
 
-    if (!rec)
+    if (!rec) {
+        libmsi_global_unlock();
         return gerror_to_msi(error);
+    }
 
     MSIHANDLE handle = handle_table_alloc(G_OBJECT(rec), HANDLE_RECORD);
     g_object_unref(rec);
+
+    libmsi_global_unlock();
 
     if (handle == 0)
         return ERROR_GEN_FAILURE;
@@ -266,9 +285,13 @@ MsiDatabaseIsTablePersistentA(MSIHANDLE hDatabase, LPCSTR szTableName)
     if (!db)
         return MSICONDITION_ERROR;
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     gboolean persistent = libmsi_database_is_table_persistent(db, szTableName, &error);
     g_object_unref(db);
+
+    libmsi_global_unlock();
 
     if (error) {
         g_error_free(error);
@@ -310,10 +333,14 @@ MsiDatabaseImportA(MSIHANDLE hDatabase, LPCSTR szFolderPath, LPCSTR szFileName)
     /* Build full path: folder + separator + file */
     char *full_path = g_build_filename(szFolderPath, szFileName, NULL);
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     gboolean ok = libmsi_database_import(db, full_path, &error);
     g_free(full_path);
     g_object_unref(db);
+
+    libmsi_global_unlock();
 
     if (!ok)
         return gerror_to_msi(error);
@@ -372,6 +399,8 @@ MsiDatabaseExportA(MSIHANDLE hDatabase, LPCSTR szTableName, LPCSTR szFolderPath,
         return ERROR_FUNCTION_FAILED;
     }
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     gboolean ok = libmsi_database_export(db, szTableName, fd, &error);
 
@@ -382,6 +411,8 @@ MsiDatabaseExportA(MSIHANDLE hDatabase, LPCSTR szTableName, LPCSTR szFolderPath,
 #endif
 
     g_object_unref(db);
+
+    libmsi_global_unlock();
 
     if (!ok)
         return gerror_to_msi(error);
@@ -431,10 +462,14 @@ MsiDatabaseMergeA(MSIHANDLE hDatabase, MSIHANDLE hDatabaseMerge, LPCSTR szTableN
         return ERROR_INVALID_HANDLE;
     }
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     gboolean ok = libmsi_database_merge(db, db_merge, szTableName, &error);
     g_object_unref(db);
     g_object_unref(db_merge);
+
+    libmsi_global_unlock();
 
     if (!ok)
         return gerror_to_msi(error);
@@ -473,9 +508,13 @@ MsiDatabaseApplyTransformA(MSIHANDLE hDatabase, LPCSTR szTransformFile,
     if (!db)
         return ERROR_INVALID_HANDLE;
 
+    libmsi_global_lock();
+
     GError *error = NULL;
     gboolean ok = libmsi_database_apply_transform(db, szTransformFile, &error);
     g_object_unref(db);
+
+    libmsi_global_unlock();
 
     if (!ok)
         return gerror_to_msi(error);
