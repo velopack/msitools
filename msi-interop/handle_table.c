@@ -299,6 +299,10 @@ handle_table_close_all(void)
     }
     g_free(to_unref);
 
+    // Shut down libgsf to prevent crashes during DLL unload.
+    // Must be called after all GsfInput/GsfOutput objects are freed.
+    gsf_shutdown();
+
     return count;
 }
 
