@@ -19,6 +19,10 @@
 #include <string.h>
 #include <time.h>
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 /* ========================================================================= */
 /* Internal context for cabinet creation                                     */
 /* ========================================================================= */
@@ -733,6 +737,35 @@ CabExtract(const wchar_t     *cab_path,
                 G_FILE_QUERY_INFO_NONE,
                 NULL,
                 NULL);
+
+#ifdef _WIN32
+            /* GLib may not support writing time::created via attributes.
+             * Use the native Windows API to set creation time directly. */
+            {
+                char *file_path = g_file_get_path(extracted);
+                if (file_path) {
+                    /* Convert Unix time to Windows FILETIME */
+                    static const int64_t EPOCH_DIFF = 116444736000000000LL;
+                    int64_t ft = (int64_t)unix_time * 10000000LL + EPOCH_DIFF;
+                    FILETIME filetime;
+                    filetime.dwLowDateTime = (DWORD)(ft & 0xFFFFFFFF);
+                    filetime.dwHighDateTime = (DWORD)(ft >> 32);
+
+                    wchar_t *wpath = (wchar_t *)g_utf8_to_utf16(file_path, -1, NULL, NULL, NULL);
+                    if (wpath) {
+                        HANDLE hFile = CreateFileW(wpath, FILE_WRITE_ATTRIBUTES,
+                            FILE_SHARE_READ | FILE_SHARE_WRITE, NULL,
+                            OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+                        if (hFile != INVALID_HANDLE_VALUE) {
+                            SetFileTime(hFile, &filetime, &filetime, &filetime);
+                            CloseHandle(hFile);
+                        }
+                        g_free(wpath);
+                    }
+                    g_free(file_path);
+                }
+            }
+#endif
 
             g_object_unref(finfo);
             g_object_unref(extracted);
