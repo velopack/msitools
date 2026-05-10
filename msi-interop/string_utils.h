@@ -4,7 +4,9 @@
 #include <stddef.h>
 #include "msi_interop.h"
 
+#ifndef _WIN32
 typedef unsigned short WCHAR;
+#endif
 
 char *utf16_to_utf8(const WCHAR *utf16);
 

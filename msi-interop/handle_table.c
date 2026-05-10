@@ -1,6 +1,7 @@
 #include "handle_table.h"
 #include <glib.h>
 #include <gsf/gsf-utils.h>
+#include "libmsi.h"
 
 typedef struct {
     GObject *obj;
@@ -247,5 +248,9 @@ static void
 handle_table_auto_init(void)
 {
     gsf_init();
+    g_type_ensure(libmsi_database_get_type());
+    g_type_ensure(libmsi_query_get_type());
+    g_type_ensure(libmsi_record_get_type());
+    g_type_ensure(libmsi_summary_info_get_type());
     handle_table_init();
 }

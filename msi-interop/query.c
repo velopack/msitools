@@ -164,6 +164,11 @@ UINT WINAPI MsiViewFetch(MSIHANDLE hView, MSIHANDLE *phRecord)
     if (!query)
         return ERROR_INVALID_HANDLE;
 
+    if (!query->view || !query->view->ops || !query->database) {
+        g_object_unref(query);
+        return ERROR_FUNCTION_FAILED;
+    }
+
     GError *error = NULL;
     LibmsiRecord *rec = libmsi_query_fetch(query, &error);
     g_object_unref(query);
