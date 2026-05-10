@@ -348,7 +348,25 @@ CabFlush(CABHANDLE       handle,
 
     guint total_files = ctx->files->len;
     if (total_files == 0) {
-        /* No files added -- nothing to write */
+        /* Create an empty cabinet file (valid cabinet with no files). */
+        GError *error = NULL;
+        gboolean ok = write_single_cabinet(ctx, 0, 0, ctx->output_path, &error);
+        g_clear_error(&error);
+
+        if (!ok)
+            return CAB_ERROR_FUNCTION_FAILED;
+
+        /* Report the single empty cabinet */
+        WCHAR *cab_name_w = utf8_to_utf16(ctx->cab_basename, NULL);
+        WCHAR *empty_token_w = utf8_to_utf16("", NULL);
+        g_ptr_array_add(ctx->result_cab_names, cab_name_w);
+        g_ptr_array_add(ctx->result_tokens, empty_token_w);
+
+        if (out_cabs != NULL && max_cabs > 0) {
+            out_cabs[0].cabinet_name     = (const wchar_t *)g_ptr_array_index(ctx->result_cab_names, 0);
+            out_cabs[0].first_file_token = (const wchar_t *)g_ptr_array_index(ctx->result_tokens, 0);
+        }
+        *out_count = 1;
         return CAB_SUCCESS;
     }
 
