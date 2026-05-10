@@ -9,6 +9,7 @@
 
 #include "msi_cab.h"
 #include "string_utils.h"
+#include "handle_table.h"
 
 #include <gcab-cabinet.h>
 #include <gcab-folder.h>
@@ -206,6 +207,8 @@ CabAddFile(CABHANDLE              handle,
         return CAB_ERROR_INVALID_PARAM;
     }
 
+    libmsi_global_lock();
+
     /* Query file size on disk */
     int64_t file_size = 0;
     GFile *gfile = g_file_new_for_path(file_path_utf8);
@@ -224,6 +227,7 @@ CabAddFile(CABHANDLE              handle,
 
     g_ptr_array_add(ctx->files, entry);
 
+    libmsi_global_unlock();
     return CAB_SUCCESS;
 }
 
@@ -343,10 +347,14 @@ CabFlush(CABHANDLE       handle,
     if (handle == 0)
         return CAB_ERROR_INVALID_PARAM;
 
+    libmsi_global_lock();
+
     CabContext *ctx = (CabContext *)(uintptr_t)handle;
 
-    if (out_count == NULL)
+    if (out_count == NULL) {
+        libmsi_global_unlock();
         return CAB_ERROR_INVALID_PARAM;
+    }
 
     *out_count = 0;
 
@@ -357,8 +365,10 @@ CabFlush(CABHANDLE       handle,
         gboolean ok = write_single_cabinet(ctx, 0, 0, ctx->output_path, &error);
         g_clear_error(&error);
 
-        if (!ok)
+        if (!ok) {
+            libmsi_global_unlock();
             return CAB_ERROR_FUNCTION_FAILED;
+        }
 
         /* Report the single empty cabinet */
         WCHAR *cab_name_w = utf8_to_utf16(ctx->cab_basename, NULL);
@@ -371,6 +381,7 @@ CabFlush(CABHANDLE       handle,
             out_cabs[0].first_file_token = (const wchar_t *)g_ptr_array_index(ctx->result_tokens, 0);
         }
         *out_count = 1;
+        libmsi_global_unlock();
         return CAB_SUCCESS;
     }
 
@@ -428,6 +439,7 @@ CabFlush(CABHANDLE       handle,
             g_free(cab_name);
             g_clear_error(&error);
             g_array_free(partitions, TRUE);
+            libmsi_global_unlock();
             return CAB_ERROR_FUNCTION_FAILED;
         }
 
@@ -462,6 +474,7 @@ CabFlush(CABHANDLE       handle,
 
     *out_count = num_cabs;
 
+    libmsi_global_unlock();
     return CAB_SUCCESS;
 }
 
@@ -503,9 +516,13 @@ CabEnumerate(const wchar_t  *cab_path,
     if (cab_path == NULL || callback == NULL)
         return CAB_ERROR_INVALID_PARAM;
 
+    libmsi_global_lock();
+
     char *path_utf8 = wchar_to_utf8(cab_path);
-    if (path_utf8 == NULL)
+    if (path_utf8 == NULL) {
+        libmsi_global_unlock();
         return CAB_ERROR_INVALID_PARAM;
+    }
 
     GFile *gfile = g_file_new_for_path(path_utf8);
     GError *error = NULL;
@@ -516,6 +533,7 @@ CabEnumerate(const wchar_t  *cab_path,
 
     if (fis == NULL) {
         g_clear_error(&error);
+        libmsi_global_unlock();
         return CAB_ERROR_OPEN_FAILED;
     }
 
@@ -524,6 +542,7 @@ CabEnumerate(const wchar_t  *cab_path,
         g_clear_error(&error);
         g_object_unref(fis);
         g_object_unref(cab);
+        libmsi_global_unlock();
         return CAB_ERROR_FUNCTION_FAILED;
     }
 
@@ -580,6 +599,7 @@ CabEnumerate(const wchar_t  *cab_path,
 
 done:
     g_object_unref(cab);
+    libmsi_global_unlock();
     return result;
 }
 
@@ -631,6 +651,8 @@ CabExtract(const wchar_t     *cab_path,
         return CAB_ERROR_INVALID_PARAM;
     }
 
+    libmsi_global_lock();
+
     /* Open and load the cabinet */
     GFile *gfile = g_file_new_for_path(path_utf8);
     GError *error = NULL;
@@ -642,6 +664,7 @@ CabExtract(const wchar_t     *cab_path,
     if (fis == NULL) {
         g_clear_error(&error);
         g_free(outdir_utf8);
+        libmsi_global_unlock();
         return CAB_ERROR_OPEN_FAILED;
     }
 
@@ -651,6 +674,7 @@ CabExtract(const wchar_t     *cab_path,
         g_object_unref(fis);
         g_object_unref(cab);
         g_free(outdir_utf8);
+        libmsi_global_unlock();
         return CAB_ERROR_FUNCTION_FAILED;
     }
     g_object_unref(fis);
@@ -676,6 +700,7 @@ CabExtract(const wchar_t     *cab_path,
         g_object_unref(out_gfile);
         g_object_unref(cab);
         g_clear_error(&error);
+        libmsi_global_unlock();
         return CAB_ERROR_FUNCTION_FAILED;
     }
 
@@ -776,6 +801,7 @@ CabExtract(const wchar_t     *cab_path,
     g_object_unref(out_gfile);
     g_object_unref(cab);
 
+    libmsi_global_unlock();
     return CAB_SUCCESS;
 }
 
