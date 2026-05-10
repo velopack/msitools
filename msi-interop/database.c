@@ -183,11 +183,13 @@ MsiOpenDatabaseW(LPCWSTR szDatabasePath, LPCWSTR szPersist, MSIHANDLE *phDatabas
 UINT WINAPI
 MsiDatabaseCommit(MSIHANDLE hDatabase)
 {
-    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
-    if (!db)
-        return ERROR_INVALID_HANDLE;
-
     libmsi_global_lock();
+
+    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
+    if (!db) {
+        libmsi_global_unlock();
+        return ERROR_INVALID_HANDLE;
+    }
 
     GError *error = NULL;
     gboolean ok = libmsi_database_commit(db, &error);
@@ -208,11 +210,14 @@ MsiDatabaseCommit(MSIHANDLE hDatabase)
 MSIDBSTATE WINAPI
 MsiGetDatabaseState(MSIHANDLE hDatabase)
 {
-    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
-    if (!db)
-        return MSIDBSTATE_ERROR;
-
     libmsi_global_lock();
+
+    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
+    if (!db) {
+        libmsi_global_unlock();
+        return MSIDBSTATE_ERROR;
+    }
+
     MSIDBSTATE ret = libmsi_database_is_readonly(db) ? MSIDBSTATE_READ : MSIDBSTATE_WRITE;
     g_object_unref(db);
     libmsi_global_unlock();
@@ -230,22 +235,17 @@ MsiDatabaseGetPrimaryKeysA(MSIHANDLE hDatabase, LPCSTR szTableName, MSIHANDLE *p
     if (!szTableName || !phRecord)
         return ERROR_INVALID_PARAMETER;
 
-    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
-    if (!db)
-        return ERROR_INVALID_HANDLE;
-
-    /*
-     * Use internal API to avoid LIBMSI_IS_DATABASE type-check macro.
-     * Add protective ref/unref to match the public API's bracketing.
-     */
     libmsi_global_lock();
 
-    g_object_ref(db);          /* protective ref (matches public API) */
+    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
+    if (!db) {
+        libmsi_global_unlock();
+        return ERROR_INVALID_HANDLE;
+    }
 
     LibmsiRecord *rec = NULL;
     unsigned r = _libmsi_database_get_primary_keys(db, szTableName, &rec);
 
-    g_object_unref(db);        /* drop protective ref */
     g_object_unref(db);        /* drop handle_table_get_typed ref */
 
     if (r != LIBMSI_RESULT_SUCCESS || !rec) {
@@ -290,21 +290,16 @@ MsiDatabaseIsTablePersistentA(MSIHANDLE hDatabase, LPCSTR szTableName)
     if (!szTableName)
         return MSICONDITION_ERROR;
 
-    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
-    if (!db)
-        return MSICONDITION_ERROR;
-
-    /*
-     * Use internal API to avoid LIBMSI_IS_DATABASE type-check macro.
-     * Add protective ref/unref to match the public API's bracketing.
-     */
     libmsi_global_lock();
 
-    g_object_ref(db);          /* protective ref (matches public API) */
+    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
+    if (!db) {
+        libmsi_global_unlock();
+        return MSICONDITION_ERROR;
+    }
 
     LibmsiCondition r = _libmsi_database_is_table_persistent(db, szTableName);
 
-    g_object_unref(db);        /* drop protective ref */
     g_object_unref(db);        /* drop handle_table_get_typed ref */
 
     libmsi_global_unlock();
@@ -340,14 +335,17 @@ MsiDatabaseImportA(MSIHANDLE hDatabase, LPCSTR szFolderPath, LPCSTR szFileName)
     if (!szFolderPath || !szFileName)
         return ERROR_INVALID_PARAMETER;
 
-    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
-    if (!db)
-        return ERROR_INVALID_HANDLE;
-
     /* Build full path: folder + separator + file */
     char *full_path = g_build_filename(szFolderPath, szFileName, NULL);
 
     libmsi_global_lock();
+
+    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
+    if (!db) {
+        libmsi_global_unlock();
+        g_free(full_path);
+        return ERROR_INVALID_HANDLE;
+    }
 
     GError *error = NULL;
     gboolean ok = libmsi_database_import(db, full_path, &error);
@@ -394,10 +392,6 @@ MsiDatabaseExportA(MSIHANDLE hDatabase, LPCSTR szTableName, LPCSTR szFolderPath,
     if (!szTableName || !szFolderPath || !szFileName)
         return ERROR_INVALID_PARAMETER;
 
-    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
-    if (!db)
-        return ERROR_INVALID_HANDLE;
-
     /* Build the full path and open it as a file descriptor */
     char *full_path = g_build_filename(szFolderPath, szFileName, NULL);
 
@@ -408,12 +402,21 @@ MsiDatabaseExportA(MSIHANDLE hDatabase, LPCSTR szTableName, LPCSTR szFolderPath,
 #endif
     g_free(full_path);
 
-    if (fd < 0) {
-        g_object_unref(db);
+    if (fd < 0)
         return ERROR_FUNCTION_FAILED;
-    }
 
     libmsi_global_lock();
+
+    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
+    if (!db) {
+#ifdef _WIN32
+        _close(fd);
+#else
+        close(fd);
+#endif
+        libmsi_global_unlock();
+        return ERROR_INVALID_HANDLE;
+    }
 
     GError *error = NULL;
     gboolean ok = libmsi_database_export(db, szTableName, fd, &error);
@@ -466,17 +469,20 @@ MsiDatabaseExportW(MSIHANDLE hDatabase, LPCWSTR szTableName, LPCWSTR szFolderPat
 UINT WINAPI
 MsiDatabaseMergeA(MSIHANDLE hDatabase, MSIHANDLE hDatabaseMerge, LPCSTR szTableName)
 {
+    libmsi_global_lock();
+
     LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
-    if (!db)
+    if (!db) {
+        libmsi_global_unlock();
         return ERROR_INVALID_HANDLE;
+    }
 
     LibmsiDatabase *db_merge = (LibmsiDatabase *)handle_table_get_typed(hDatabaseMerge, HANDLE_DATABASE);
     if (!db_merge) {
         g_object_unref(db);
+        libmsi_global_unlock();
         return ERROR_INVALID_HANDLE;
     }
-
-    libmsi_global_lock();
 
     GError *error = NULL;
     gboolean ok = libmsi_database_merge(db, db_merge, szTableName, &error);
@@ -518,21 +524,16 @@ MsiDatabaseApplyTransformA(MSIHANDLE hDatabase, LPCSTR szTransformFile,
     if (!szTransformFile)
         return ERROR_INVALID_PARAMETER;
 
-    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
-    if (!db)
-        return ERROR_INVALID_HANDLE;
-
-    /*
-     * Use internal API to avoid LIBMSI_IS_DATABASE type-check macro.
-     * Add protective ref/unref to match the public API's bracketing.
-     */
     libmsi_global_lock();
 
-    g_object_ref(db);          /* protective ref (matches public API) */
+    LibmsiDatabase *db = (LibmsiDatabase *)handle_table_get_typed(hDatabase, HANDLE_DATABASE);
+    if (!db) {
+        libmsi_global_unlock();
+        return ERROR_INVALID_HANDLE;
+    }
 
     unsigned r = _libmsi_database_apply_transform(db, szTransformFile);
 
-    g_object_unref(db);        /* drop protective ref */
     g_object_unref(db);        /* drop handle_table_get_typed ref */
 
     libmsi_global_unlock();
