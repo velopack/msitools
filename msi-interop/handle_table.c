@@ -316,6 +316,13 @@ __attribute__((constructor))
 static void
 handle_table_auto_init(void)
 {
+#ifdef _WIN32
+    // Pin this DLL so it's never unloaded. Prevents libgsf's DllMain from
+    // running during process exit, which crashes when GLib objects remain.
+    HMODULE hSelf;
+    GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_PIN,
+                       (LPCWSTR)handle_table_auto_init, &hSelf);
+#endif
     gsf_init();
     g_type_ensure(libmsi_database_get_type());
     g_type_ensure(libmsi_query_get_type());
