@@ -42,19 +42,20 @@ static gboolean initialized = FALSE;
  */
 #ifdef _WIN32
 static CRITICAL_SECTION libmsi_cs;
-static volatile LONG libmsi_cs_initialized = 0;
 
-static void ensure_cs_initialized(void)
+static BOOL CALLBACK init_cs_once(PINIT_ONCE initOnce, PVOID param, PVOID *context)
 {
-    if (InterlockedCompareExchange(&libmsi_cs_initialized, 1, 0) == 0) {
-        InitializeCriticalSection(&libmsi_cs);
-    }
+    (void)initOnce; (void)param; (void)context;
+    InitializeCriticalSection(&libmsi_cs);
+    return TRUE;
 }
+
+static INIT_ONCE cs_init_once = INIT_ONCE_STATIC_INIT;
 
 void
 libmsi_global_lock(void)
 {
-    ensure_cs_initialized();
+    InitOnceExecuteOnce(&cs_init_once, init_cs_once, NULL, NULL);
     EnterCriticalSection(&libmsi_cs);
 }
 
@@ -322,10 +323,8 @@ handle_table_auto_init(void)
     g_type_ensure(libmsi_summary_info_get_type());
     handle_table_init();
 
-    // Suppress GLib critical warnings on stderr during process shutdown.
-    // .NET finalizers may call MsiCloseHandle after GLib's internal state
-    // is partially torn down, producing g_object_unref assertion messages
-    // that cause test runners to detect a "crash".
-    g_log_set_handler("GLib-GObject", G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL, silent_log_handler, NULL);
-    g_log_set_handler("GLib", G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL, silent_log_handler, NULL);
+    // Suppress GLib critical warnings on stderr that cause test runners
+    // to detect false "crashes" during process shutdown cleanup.
+    g_log_set_handler("GLib-GObject", G_LOG_LEVEL_CRITICAL, silent_log_handler, NULL);
+    g_log_set_handler("GLib", G_LOG_LEVEL_CRITICAL, silent_log_handler, NULL);
 }
