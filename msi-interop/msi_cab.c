@@ -708,11 +708,24 @@ CabExtract(const wchar_t     *cab_path,
                 finfo,
                 G_FILE_ATTRIBUTE_TIME_MODIFIED,
                 (guint64)unix_time);
-            /* Set fractional seconds to zero */
             g_file_info_set_attribute_uint32(
                 finfo,
                 G_FILE_ATTRIBUTE_TIME_MODIFIED_USEC,
                 0);
+            g_file_info_set_attribute_uint64(
+                finfo,
+                G_FILE_ATTRIBUTE_TIME_ACCESS,
+                (guint64)unix_time);
+            g_file_info_set_attribute_uint32(
+                finfo,
+                G_FILE_ATTRIBUTE_TIME_ACCESS_USEC,
+                0);
+#ifdef _WIN32
+            g_file_info_set_attribute_uint64(
+                finfo,
+                "time::created",
+                (guint64)unix_time);
+#endif
 
             g_file_set_attributes_from_info(
                 extracted,
