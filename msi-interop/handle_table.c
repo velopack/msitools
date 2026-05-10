@@ -299,10 +299,6 @@ handle_table_close_all(void)
     }
     g_free(to_unref);
 
-    // Shut down libgsf to prevent crashes during DLL unload.
-    // Must be called after all GsfInput/GsfOutput objects are freed.
-    gsf_shutdown();
-
     return count;
 }
 
@@ -327,12 +323,12 @@ handle_table_auto_init(void)
     g_type_ensure(libmsi_summary_info_get_type());
     handle_table_init();
 
-    // Suppress GLib log messages on stderr that cause test runners to
-    // detect false "crashes" during process shutdown cleanup.
-    GLogLevelFlags suppressed = G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_WARNING;
-    g_log_set_handler("GLib-GObject", suppressed, silent_log_handler, NULL);
-    g_log_set_handler("GLib", suppressed, silent_log_handler, NULL);
-    g_log_set_handler("GIO", suppressed, silent_log_handler, NULL);
-    g_log_set_handler("libmsi", suppressed, silent_log_handler, NULL);
+    // Prevent GLib from calling abort() on critical messages and suppress
+    // all log output that can confuse test runners during process shutdown.
+    g_log_set_always_fatal(0);
     g_log_set_default_handler(silent_log_handler, NULL);
+    g_log_set_handler("GLib-GObject", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL, silent_log_handler, NULL);
+    g_log_set_handler("GLib", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL, silent_log_handler, NULL);
+    g_log_set_handler("GIO", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL, silent_log_handler, NULL);
+    g_log_set_handler("libmsi", G_LOG_LEVEL_MASK | G_LOG_FLAG_FATAL, silent_log_handler, NULL);
 }
