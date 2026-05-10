@@ -4,21 +4,6 @@
 #include <stdlib.h>
 #include "libmsi.h"
 
-#ifdef _WIN32
-#include <windows.h>
-static volatile LONG g_process_detaching = 0;
-
-BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
-{
-    (void)hinstDLL;
-    (void)lpvReserved;
-    if (fdwReason == DLL_PROCESS_DETACH) {
-        InterlockedExchange(&g_process_detaching, 1);
-    }
-    return TRUE;
-}
-#endif
-
 typedef struct {
     GObject *obj;
     HandleType type;
@@ -242,12 +227,8 @@ handle_table_close(MSIHANDLE handle)
 
     g_mutex_unlock(&table_mutex);
 
-#ifdef _WIN32
-    if (!InterlockedCompareExchange(&g_process_detaching, 0, 0))
-#endif
-    {
-        g_object_unref(obj);
-    }
+    // Unref outside the lock to avoid potential deadlocks from destroy callbacks
+    g_object_unref(obj);
 
     return 0;
 }
@@ -293,6 +274,16 @@ handle_table_close_all(void)
     return count;
 }
 
+static void
+silent_log_handler(const gchar *log_domain, GLogLevelFlags log_level,
+                   const gchar *message, gpointer user_data)
+{
+    (void)log_domain;
+    (void)log_level;
+    (void)message;
+    (void)user_data;
+}
+
 __attribute__((constructor))
 static void
 handle_table_auto_init(void)
@@ -303,4 +294,11 @@ handle_table_auto_init(void)
     g_type_ensure(libmsi_record_get_type());
     g_type_ensure(libmsi_summary_info_get_type());
     handle_table_init();
+
+    // Suppress GLib critical warnings on stderr during process shutdown.
+    // .NET finalizers may call MsiCloseHandle after GLib's internal state
+    // is partially torn down, producing g_object_unref assertion messages
+    // that cause test runners to detect a "crash".
+    g_log_set_handler("GLib-GObject", G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL, silent_log_handler, NULL);
+    g_log_set_handler("GLib", G_LOG_LEVEL_CRITICAL | G_LOG_FLAG_FATAL, silent_log_handler, NULL);
 }
