@@ -1,6 +1,7 @@
 #include "handle_table.h"
 #include <glib.h>
 #include <gsf/gsf-utils.h>
+#include <stdlib.h>
 #include "libmsi.h"
 
 typedef struct {
@@ -273,6 +274,13 @@ handle_table_close_all(void)
     return count;
 }
 
+static void
+handle_table_atexit_cleanup(void)
+{
+    handle_table_close_all();
+    gsf_shutdown();
+}
+
 __attribute__((constructor))
 static void
 handle_table_auto_init(void)
@@ -283,12 +291,5 @@ handle_table_auto_init(void)
     g_type_ensure(libmsi_record_get_type());
     g_type_ensure(libmsi_summary_info_get_type());
     handle_table_init();
-}
-
-__attribute__((destructor))
-static void
-handle_table_auto_cleanup(void)
-{
-    handle_table_close_all();
-    gsf_shutdown();
+    atexit(handle_table_atexit_cleanup);
 }
