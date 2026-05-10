@@ -23,14 +23,25 @@
 /* Internal context for cabinet creation                                     */
 /* ========================================================================= */
 
+/* Information about a single file added via CabAddFile. */
 typedef struct {
-    GCabCabinet *cabinet;
-    GCabFolder  *folder;
+    char  *file_path;   /* UTF-8 path on disk     */
+    char  *token;       /* UTF-8 token (name in cab) */
+    int64_t file_size;  /* source file size in bytes  */
+} CabFileEntry;
+
+typedef struct {
     char        *output_path;       /* UTF-8 full path of output .cab file */
     char        *cab_basename;      /* UTF-8 base name (e.g. "product.cab") */
-    WCHAR       *cab_basename_w;    /* UTF-16 base name for CabCreatedInfo  */
-    GPtrArray   *file_tokens;       /* array of char* (owned, UTF-8 tokens) */
-    WCHAR       *first_token_w;     /* UTF-16 copy of first token added     */
+    char        *output_dir;        /* UTF-8 directory containing output .cab */
+    GPtrArray   *files;             /* array of CabFileEntry* (owned) */
+    int32_t      compression_level; /* CAB_COMPRESS_xxx value */
+    int64_t      max_size_bytes;    /* max cabinet size in bytes (0 = no limit) */
+
+    /* Populated by CabFlush -- arrays of WCHAR* (UTF-16) strings kept alive
+     * until CabDestroy so callers can read CabCreatedInfo pointers. */
+    GPtrArray   *result_cab_names;  /* WCHAR* cabinet basenames */
+    GPtrArray   *result_tokens;     /* WCHAR* first-file tokens */
 } CabContext;
 
 /* ========================================================================= */
@@ -95,6 +106,37 @@ map_compression(int32_t level)
     }
 }
 
+static void
+cab_file_entry_free(gpointer data)
+{
+    CabFileEntry *entry = (CabFileEntry *)data;
+    if (entry == NULL) return;
+    g_free(entry->file_path);
+    g_free(entry->token);
+    g_free(entry);
+}
+
+/*
+ * Extract the directory portion of a UTF-8 path.
+ * Returns a newly-allocated string (empty string if no directory).
+ */
+static char *
+path_dirname(const char *path)
+{
+    if (path == NULL)
+        return g_strdup("");
+
+    const char *sep = strrchr(path, '/');
+#ifdef _WIN32
+    const char *bsep = strrchr(path, '\\');
+    if (bsep != NULL && (sep == NULL || bsep > sep))
+        sep = bsep;
+#endif
+    if (sep != NULL)
+        return g_strndup(path, (gsize)(sep - path));
+    return g_strdup("");
+}
+
 /* ========================================================================= */
 /* CabCreate                                                                 */
 /* ========================================================================= */
@@ -108,7 +150,6 @@ CabCreate(const wchar_t *cab_path,
           CABHANDLE     *out_handle)
 {
     (void)max_file_count;
-    (void)max_size_mb;
     (void)max_threshold;
 
     if (cab_path == NULL || out_handle == NULL)
@@ -120,36 +161,17 @@ CabCreate(const wchar_t *cab_path,
     if (output_path == NULL)
         return CAB_ERROR_INVALID_PARAM;
 
-    GCabCabinet *cabinet = gcab_cabinet_new();
-    if (cabinet == NULL) {
-        g_free(output_path);
-        return CAB_ERROR_FUNCTION_FAILED;
-    }
-
-    GCabFolder *folder = gcab_folder_new(map_compression(compression_level));
-    if (folder == NULL) {
-        g_object_unref(cabinet);
-        g_free(output_path);
-        return CAB_ERROR_FUNCTION_FAILED;
-    }
-
-    GError *error = NULL;
-    if (!gcab_cabinet_add_folder(cabinet, folder, &error)) {
-        g_clear_error(&error);
-        g_object_unref(folder);
-        g_object_unref(cabinet);
-        g_free(output_path);
-        return CAB_ERROR_FUNCTION_FAILED;
-    }
-
     CabContext *ctx = g_new0(CabContext, 1);
-    ctx->cabinet       = cabinet;
-    ctx->folder        = folder;
-    ctx->output_path   = output_path;
-    ctx->cab_basename  = path_basename(output_path);
-    ctx->cab_basename_w = utf8_to_utf16(ctx->cab_basename, NULL);
-    ctx->file_tokens   = g_ptr_array_new_with_free_func(g_free);
-    ctx->first_token_w = NULL;
+    ctx->output_path       = output_path;
+    ctx->cab_basename      = path_basename(output_path);
+    ctx->output_dir        = path_dirname(output_path);
+    ctx->files             = g_ptr_array_new_with_free_func(cab_file_entry_free);
+    ctx->compression_level = compression_level;
+    ctx->max_size_bytes    = (max_size_mb > 0)
+                             ? (int64_t)max_size_mb * 1024 * 1024
+                             : 0;
+    ctx->result_cab_names  = g_ptr_array_new_with_free_func(g_free);
+    ctx->result_tokens     = g_ptr_array_new_with_free_func(g_free);
 
     *out_handle = (CABHANDLE)(uintptr_t)ctx;
     return CAB_SUCCESS;
@@ -180,40 +202,133 @@ CabAddFile(CABHANDLE              handle,
         return CAB_ERROR_INVALID_PARAM;
     }
 
+    /* Query file size on disk */
+    int64_t file_size = 0;
     GFile *gfile = g_file_new_for_path(file_path_utf8);
-    GCabFile *cabfile = gcab_file_new_with_file(token_utf8, gfile);
+    GFileInfo *finfo = g_file_query_info(gfile, G_FILE_ATTRIBUTE_STANDARD_SIZE,
+                                         G_FILE_QUERY_INFO_NONE, NULL, NULL);
+    if (finfo != NULL) {
+        file_size = g_file_info_get_size(finfo);
+        g_object_unref(finfo);
+    }
     g_object_unref(gfile);
 
-    if (cabfile == NULL) {
-        g_free(file_path_utf8);
-        g_free(token_utf8);
-        return CAB_ERROR_FUNCTION_FAILED;
-    }
+    CabFileEntry *entry = g_new0(CabFileEntry, 1);
+    entry->file_path = file_path_utf8;
+    entry->token     = token_utf8;
+    entry->file_size = file_size;
 
-    GError *error = NULL;
-    if (!gcab_folder_add_file(ctx->folder, cabfile, FALSE, NULL, &error)) {
-        g_clear_error(&error);
-        g_object_unref(cabfile);
-        g_free(file_path_utf8);
-        g_free(token_utf8);
-        return CAB_ERROR_FUNCTION_FAILED;
-    }
+    g_ptr_array_add(ctx->files, entry);
 
-    /* Keep track of the first token for CabCreatedInfo */
-    if (ctx->file_tokens->len == 0) {
-        ctx->first_token_w = utf8_to_utf16(token_utf8, NULL);
-    }
-    g_ptr_array_add(ctx->file_tokens, g_strdup(token_utf8));
-
-    g_object_unref(cabfile);
-    g_free(file_path_utf8);
-    g_free(token_utf8);
     return CAB_SUCCESS;
 }
 
 /* ========================================================================= */
 /* CabFlush                                                                  */
 /* ========================================================================= */
+
+/*
+ * Generate the cabinet file name for split cabinet number `index`.
+ *   index 0  -> basename unchanged  (e.g. "test.cab")
+ *   index 1  -> append 'a'          (e.g. "testa.cab")
+ *   index 2  -> append 'b'          (e.g. "testb.cab")
+ *   ...
+ *   index 26 -> append 'z'
+ *   index 27+ -> append decimal     (e.g. "test27.cab")
+ *
+ * Returns a newly-allocated UTF-8 base name.
+ */
+static char *
+make_split_cab_name(const char *basename, int index)
+{
+    if (index == 0)
+        return g_strdup(basename);
+
+    /* Find the extension (last '.') */
+    const char *dot = strrchr(basename, '.');
+    if (dot == NULL) {
+        /* No extension -- just append the suffix */
+        if (index >= 1 && index <= 26)
+            return g_strdup_printf("%s%c", basename, 'a' + (index - 1));
+        else
+            return g_strdup_printf("%s%d", basename, index);
+    }
+
+    /* Split into stem and extension */
+    char *stem = g_strndup(basename, (gsize)(dot - basename));
+    char *result;
+
+    if (index >= 1 && index <= 26)
+        result = g_strdup_printf("%s%c%s", stem, 'a' + (index - 1), dot);
+    else
+        result = g_strdup_printf("%s%d%s", stem, index, dot);
+
+    g_free(stem);
+    return result;
+}
+
+/*
+ * Write a single cabinet containing files[start_idx..end_idx-1].
+ * `cab_path` is the full UTF-8 output path.
+ *
+ * Returns TRUE on success.
+ */
+static gboolean
+write_single_cabinet(CabContext *ctx,
+                     guint       start_idx,
+                     guint       end_idx,
+                     const char *cab_path,
+                     GError    **error)
+{
+    GCabCabinet *cabinet = gcab_cabinet_new();
+    GCabFolder  *folder  = gcab_folder_new(map_compression(ctx->compression_level));
+
+    if (!gcab_cabinet_add_folder(cabinet, folder, error)) {
+        g_object_unref(folder);
+        g_object_unref(cabinet);
+        return FALSE;
+    }
+
+    for (guint i = start_idx; i < end_idx; i++) {
+        CabFileEntry *entry = g_ptr_array_index(ctx->files, i);
+        GFile *gfile = g_file_new_for_path(entry->file_path);
+        GCabFile *cabfile = gcab_file_new_with_file(entry->token, gfile);
+        g_object_unref(gfile);
+
+        if (cabfile == NULL) {
+            g_object_unref(folder);
+            g_object_unref(cabinet);
+            return FALSE;
+        }
+
+        if (!gcab_folder_add_file(folder, cabfile, FALSE, NULL, error)) {
+            g_object_unref(cabfile);
+            g_object_unref(folder);
+            g_object_unref(cabinet);
+            return FALSE;
+        }
+        g_object_unref(cabfile);
+    }
+
+    GFile *ofile = g_file_new_for_path(cab_path);
+    GOutputStream *out = G_OUTPUT_STREAM(
+        g_file_replace(ofile, NULL, FALSE, G_FILE_CREATE_NONE, NULL, error));
+    g_object_unref(ofile);
+
+    if (out == NULL) {
+        g_object_unref(folder);
+        g_object_unref(cabinet);
+        return FALSE;
+    }
+
+    gboolean ok = gcab_cabinet_write_simple(cabinet, out, NULL, NULL, NULL, error);
+    g_output_stream_close(out, NULL, NULL);
+    g_object_unref(out);
+    g_object_unref(folder);
+    g_object_unref(cabinet);
+
+    return ok;
+}
 
 MSICAB_API uint32_t MSICAB_CALL
 CabFlush(CABHANDLE       handle,
@@ -231,37 +346,99 @@ CabFlush(CABHANDLE       handle,
 
     *out_count = 0;
 
-    /* Create the output file and write the cabinet */
-    GFile *ofile = g_file_new_for_path(ctx->output_path);
-    GError *error = NULL;
-
-    GOutputStream *out = G_OUTPUT_STREAM(
-        g_file_replace(ofile, NULL, FALSE, G_FILE_CREATE_NONE, NULL, &error));
-    g_object_unref(ofile);
-
-    if (out == NULL) {
-        g_clear_error(&error);
-        return CAB_ERROR_OPEN_FAILED;
+    guint total_files = ctx->files->len;
+    if (total_files == 0) {
+        /* No files added -- nothing to write */
+        return CAB_SUCCESS;
     }
 
-    gboolean ok = gcab_cabinet_write_simple(
-        ctx->cabinet, out, NULL, NULL, NULL, &error);
+    /* ------------------------------------------------------------------ */
+    /* Partition files into cabinets based on max_size_bytes.              */
+    /* Each partition is a range [start, end) of file indices.             */
+    /* ------------------------------------------------------------------ */
+    GArray *partitions = g_array_new(FALSE, FALSE, sizeof(guint));
+    guint part_start = 0;
+    g_array_append_val(partitions, part_start); /* first partition starts at 0 */
 
-    /* Close the stream regardless of write success */
-    g_output_stream_close(out, NULL, NULL);
-    g_object_unref(out);
+    if (ctx->max_size_bytes > 0) {
+        int64_t running_size = 0;
+        for (guint i = 0; i < total_files; i++) {
+            CabFileEntry *entry = g_ptr_array_index(ctx->files, i);
+            int64_t fsize = entry->file_size;
 
-    if (!ok) {
-        g_clear_error(&error);
-        return CAB_ERROR_FUNCTION_FAILED;
+            /* If adding this file would exceed the limit AND the current
+             * partition already contains at least one file, start a new
+             * partition.  (A single file larger than the limit gets its
+             * own cabinet -- we cannot split within a file.) */
+            if (running_size > 0 && running_size + fsize > ctx->max_size_bytes) {
+                g_array_append_val(partitions, i);
+                running_size = 0;
+            }
+            running_size += fsize;
+        }
+    }
+    /* Sentinel: end of last partition */
+    g_array_append_val(partitions, total_files);
+
+    int32_t num_cabs = (int32_t)(partitions->len - 1);
+
+    /* ------------------------------------------------------------------ */
+    /* Write each partition as a separate cabinet file.                    */
+    /* ------------------------------------------------------------------ */
+    for (int32_t ci = 0; ci < num_cabs; ci++) {
+        guint pstart = g_array_index(partitions, guint, ci);
+        guint pend   = g_array_index(partitions, guint, ci + 1);
+
+        /* Generate the cabinet base name and full path */
+        char *cab_name = make_split_cab_name(ctx->cab_basename, ci);
+        char *cab_path;
+        if (ctx->output_dir[0] != '\0')
+            cab_path = g_strdup_printf("%s%c%s", ctx->output_dir,
+                                       G_DIR_SEPARATOR, cab_name);
+        else
+            cab_path = g_strdup(cab_name);
+
+        GError *error = NULL;
+        gboolean ok = write_single_cabinet(ctx, pstart, pend, cab_path, &error);
+        g_free(cab_path);
+
+        if (!ok) {
+            g_free(cab_name);
+            g_clear_error(&error);
+            g_array_free(partitions, TRUE);
+            return CAB_ERROR_FUNCTION_FAILED;
+        }
+
+        /* Store result info (kept alive until CabDestroy) */
+        WCHAR *cab_name_w = utf8_to_utf16(cab_name, NULL);
+        g_free(cab_name);
+
+        CabFileEntry *first_entry = g_ptr_array_index(ctx->files, pstart);
+        WCHAR *first_token_w = utf8_to_utf16(first_entry->token, NULL);
+
+        g_ptr_array_add(ctx->result_cab_names, cab_name_w);
+        g_ptr_array_add(ctx->result_tokens, first_token_w);
     }
 
-    /* Fill in the output info */
-    if (out_cabs != NULL && max_cabs >= 1) {
-        out_cabs[0].cabinet_name     = (const wchar_t *)ctx->cab_basename_w;
-        out_cabs[0].first_file_token = (const wchar_t *)ctx->first_token_w;
-        *out_count = 1;
+    g_array_free(partitions, TRUE);
+
+    /* ------------------------------------------------------------------ */
+    /* Fill in caller's output array.                                      */
+    /* ------------------------------------------------------------------ */
+    int32_t to_report = num_cabs;
+    if (out_cabs == NULL || max_cabs <= 0)
+        to_report = 0;
+    else if (to_report > max_cabs)
+        to_report = max_cabs;
+
+    for (int32_t i = 0; i < to_report; i++) {
+        out_cabs[i].cabinet_name     = (const wchar_t *)g_ptr_array_index(
+                                           ctx->result_cab_names, i);
+        out_cabs[i].first_file_token = (const wchar_t *)g_ptr_array_index(
+                                           ctx->result_tokens, i);
     }
+
+    *out_count = num_cabs;
 
     return CAB_SUCCESS;
 }
@@ -278,18 +455,16 @@ CabDestroy(CABHANDLE handle)
 
     CabContext *ctx = (CabContext *)(uintptr_t)handle;
 
-    if (ctx->folder != NULL)
-        g_object_unref(ctx->folder);
-    if (ctx->cabinet != NULL)
-        g_object_unref(ctx->cabinet);
-
     g_free(ctx->output_path);
     g_free(ctx->cab_basename);
-    g_free(ctx->cab_basename_w);
-    g_free(ctx->first_token_w);
+    g_free(ctx->output_dir);
 
-    if (ctx->file_tokens != NULL)
-        g_ptr_array_unref(ctx->file_tokens);
+    if (ctx->files != NULL)
+        g_ptr_array_unref(ctx->files);
+    if (ctx->result_cab_names != NULL)
+        g_ptr_array_unref(ctx->result_cab_names);
+    if (ctx->result_tokens != NULL)
+        g_ptr_array_unref(ctx->result_tokens);
 
     g_free(ctx);
 }
@@ -475,13 +650,67 @@ CabExtract(const wchar_t     *cab_path,
         NULL,
         &error);
 
-    g_object_unref(out_gfile);
-    g_object_unref(cab);
-
     if (!ok) {
+        g_object_unref(out_gfile);
+        g_object_unref(cab);
         g_clear_error(&error);
         return CAB_ERROR_FUNCTION_FAILED;
     }
+
+    /* --------------------------------------------------------------------- */
+    /* Restore file timestamps from the cabinet metadata.                    */
+    /* gcab_cabinet_extract_simple does not preserve the stored date/time,   */
+    /* so we iterate over every file in the cabinet and set the modification */
+    /* time on the corresponding extracted file on disk.                     */
+    /* --------------------------------------------------------------------- */
+    GPtrArray *folders = gcab_cabinet_get_folders(cab);
+    for (guint fi = 0; fi < folders->len; fi++) {
+        GCabFolder *folder = g_ptr_array_index(folders, fi);
+        GSList *files = gcab_folder_get_files(folder);
+
+        for (GSList *l = files; l != NULL; l = l->next) {
+            GCabFile *cabfile = GCAB_FILE(l->data);
+
+            GDateTime *dt = gcab_file_get_date_time(cabfile);
+            if (dt == NULL)
+                continue;
+
+            /* Use the extract name if set, otherwise the original name */
+            const gchar *name = gcab_file_get_extract_name(cabfile);
+            if (name == NULL)
+                name = gcab_file_get_name(cabfile);
+
+            GFile *extracted = g_file_get_child(out_gfile, name);
+
+            /* Convert GDateTime to seconds since Unix epoch */
+            gint64 unix_time = g_date_time_to_unix(dt);
+
+            GFileInfo *finfo = g_file_info_new();
+            g_file_info_set_attribute_uint64(
+                finfo,
+                G_FILE_ATTRIBUTE_TIME_MODIFIED,
+                (guint64)unix_time);
+            /* Set fractional seconds to zero */
+            g_file_info_set_attribute_uint32(
+                finfo,
+                G_FILE_ATTRIBUTE_TIME_MODIFIED_USEC,
+                0);
+
+            g_file_set_attributes_from_info(
+                extracted,
+                finfo,
+                G_FILE_QUERY_INFO_NONE,
+                NULL,
+                NULL);
+
+            g_object_unref(finfo);
+            g_object_unref(extracted);
+            g_date_time_unref(dt);
+        }
+    }
+
+    g_object_unref(out_gfile);
+    g_object_unref(cab);
 
     return CAB_SUCCESS;
 }
