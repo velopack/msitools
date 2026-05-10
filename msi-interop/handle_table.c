@@ -4,6 +4,10 @@
 #include <stdlib.h>
 #include "libmsi.h"
 
+#ifdef _WIN32
+#include <windows.h>
+#endif
+
 typedef struct {
     GObject *obj;
     HandleType type;
@@ -33,11 +37,33 @@ static gboolean initialized = FALSE;
  *  - Summary info, query, and record operations all touch shared database
  *    state (string pools, table lists, streams) without synchronization.
  *
- * A single GRecMutex protects all libmsi/libgsf calls.  It must be recursive
- * because our W-suffix functions call their A-suffix counterparts (e.g.
- * MsiOpenDatabaseW -> MsiOpenDatabaseA), and MsiGetSummaryInformationA
- * may internally call MsiOpenDatabaseA when hDatabase == 0.
+ * On Windows, use CRITICAL_SECTION (explicitly initialized) instead of
+ * GRecMutex to avoid potential lazy-init races in the GLib implementation.
  */
+#ifdef _WIN32
+static CRITICAL_SECTION libmsi_cs;
+static volatile LONG libmsi_cs_initialized = 0;
+
+static void ensure_cs_initialized(void)
+{
+    if (InterlockedCompareExchange(&libmsi_cs_initialized, 1, 0) == 0) {
+        InitializeCriticalSection(&libmsi_cs);
+    }
+}
+
+void
+libmsi_global_lock(void)
+{
+    ensure_cs_initialized();
+    EnterCriticalSection(&libmsi_cs);
+}
+
+void
+libmsi_global_unlock(void)
+{
+    LeaveCriticalSection(&libmsi_cs);
+}
+#else
 static GRecMutex libmsi_mutex;
 
 void
@@ -51,6 +77,7 @@ libmsi_global_unlock(void)
 {
     g_rec_mutex_unlock(&libmsi_mutex);
 }
+#endif
 
 #define INITIAL_CAPACITY 64
 
