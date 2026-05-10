@@ -323,8 +323,12 @@ handle_table_auto_init(void)
     g_type_ensure(libmsi_summary_info_get_type());
     handle_table_init();
 
-    // Suppress GLib critical warnings on stderr that cause test runners
-    // to detect false "crashes" during process shutdown cleanup.
-    g_log_set_handler("GLib-GObject", G_LOG_LEVEL_CRITICAL, silent_log_handler, NULL);
-    g_log_set_handler("GLib", G_LOG_LEVEL_CRITICAL, silent_log_handler, NULL);
+    // Suppress GLib log messages on stderr that cause test runners to
+    // detect false "crashes" during process shutdown cleanup.
+    GLogLevelFlags suppressed = G_LOG_LEVEL_CRITICAL | G_LOG_LEVEL_WARNING;
+    g_log_set_handler("GLib-GObject", suppressed, silent_log_handler, NULL);
+    g_log_set_handler("GLib", suppressed, silent_log_handler, NULL);
+    g_log_set_handler("GIO", suppressed, silent_log_handler, NULL);
+    g_log_set_handler("libmsi", suppressed, silent_log_handler, NULL);
+    g_log_set_default_handler(silent_log_handler, NULL);
 }
