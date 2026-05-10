@@ -146,13 +146,25 @@ UINT WINAPI MsiViewExecute(MSIHANDLE hView, MSIHANDLE hRecord)
         }
     }
 
-    /* Use internal API to avoid redundant GObject ref/unref/type-check overhead */
+    /*
+     * Use internal API to avoid the LIBMSI_IS_QUERY / LIBMSI_IS_RECORD
+     * type-check macros in the public wrapper, but keep the same
+     * g_object_ref/unref bracketing that the public API provides.
+     * The protective ref ensures the query (and record) remain alive
+     * even if a view operation callback indirectly drops a reference.
+     */
     libmsi_global_lock();
+
+    g_object_ref(query);
+    if (rec) g_object_ref(rec);
 
     unsigned r = _libmsi_query_execute(query, rec);
 
-    g_object_unref(query);
-    if (rec) g_object_unref(rec);
+    g_object_unref(query);        /* drop protective ref */
+    if (rec) g_object_unref(rec); /* drop protective ref */
+
+    g_object_unref(query);        /* drop handle_table_get_typed ref */
+    if (rec) g_object_unref(rec); /* drop handle_table_get_typed ref */
 
     libmsi_global_unlock();
 
@@ -178,16 +190,20 @@ UINT WINAPI MsiViewFetch(MSIHANDLE hView, MSIHANDLE *phRecord)
     /*
      * Call the internal _libmsi_query_fetch directly instead of the public
      * libmsi_query_fetch wrapper.  The public API does g_return_val_if_fail
-     * (LIBMSI_IS_QUERY) which dereferences GObject class pointers and an
-     * extra g_object_ref/unref cycle -- both unnecessary since we already
-     * hold a valid ref from handle_table_get_typed.  Bypassing the public
-     * wrapper avoids potential issues with the GObject type-check machinery.
+     * (LIBMSI_IS_QUERY) which dereferences GObject class pointers -- bypassing
+     * the public wrapper avoids potential issues with the GObject type-check
+     * machinery.  We add a protective g_object_ref/unref to match the public
+     * API's bracketing, keeping the query alive during the fetch operation.
      */
     libmsi_global_lock();
 
+    g_object_ref(query);       /* protective ref (matches public API) */
+
     LibmsiRecord *rec = NULL;
     unsigned ret = _libmsi_query_fetch(query, &rec);
-    g_object_unref(query);
+
+    g_object_unref(query);     /* drop protective ref */
+    g_object_unref(query);     /* drop handle_table_get_typed ref */
 
     if (ret == NO_MORE_ITEMS) {
         libmsi_global_unlock();
@@ -339,12 +355,20 @@ UINT WINAPI MsiViewGetColumnInfo(MSIHANDLE hView, MSICOLINFO eColumnInfo, MSIHAN
     if (!query)
         return ERROR_INVALID_HANDLE;
 
-    /* Use internal API to avoid redundant GObject ref/unref/type-check overhead */
+    /*
+     * Use internal API to avoid the LIBMSI_IS_QUERY type-check macro in the
+     * public wrapper.  Add a protective ref to match the public API's
+     * g_object_ref/unref bracketing.
+     */
     libmsi_global_lock();
+
+    g_object_ref(query);       /* protective ref (matches public API) */
 
     LibmsiRecord *rec = NULL;
     unsigned r = _libmsi_query_get_column_info(query, (LibmsiColInfo)eColumnInfo, &rec);
-    g_object_unref(query);
+
+    g_object_unref(query);     /* drop protective ref */
+    g_object_unref(query);     /* drop handle_table_get_typed ref */
 
     if (r != LIBMSI_RESULT_SUCCESS || !rec) {
         libmsi_global_unlock();
@@ -373,18 +397,25 @@ UINT WINAPI MsiViewClose(MSIHANDLE hView)
     if (!query)
         return ERROR_INVALID_HANDLE;
 
-    /* Call the view's close operation directly instead of libmsi_query_close,
+    /*
+     * Call the view's close operation directly instead of libmsi_query_close,
      * which has a ref-count leak bug on early-return error paths (it does
      * g_object_ref but returns without g_object_unref when view is NULL or
-     * view->ops->close is NULL). */
+     * view->ops->close is NULL).  We add a protective ref/unref to match the
+     * public API's bracketing on the success path, keeping the query alive
+     * during the close operation.
+     */
     libmsi_global_lock();
+
+    g_object_ref(query);       /* protective ref (matches public API) */
 
     LibmsiView *view = query->view;
     unsigned r = LIBMSI_RESULT_SUCCESS;
     if (view && view->ops && view->ops->close)
         r = view->ops->close(view);
 
-    g_object_unref(query);
+    g_object_unref(query);     /* drop protective ref */
+    g_object_unref(query);     /* drop handle_table_get_typed ref */
 
     libmsi_global_unlock();
 

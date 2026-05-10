@@ -6,6 +6,7 @@
 #include "handle_table.h"
 #include "string_utils.h"
 #include "libmsi.h"
+#include "msipriv.h"
 #include <glib.h>
 #include <string.h>
 #include <stdint.h>
@@ -233,15 +234,23 @@ MsiDatabaseGetPrimaryKeysA(MSIHANDLE hDatabase, LPCSTR szTableName, MSIHANDLE *p
     if (!db)
         return ERROR_INVALID_HANDLE;
 
+    /*
+     * Use internal API to avoid LIBMSI_IS_DATABASE type-check macro.
+     * Add protective ref/unref to match the public API's bracketing.
+     */
     libmsi_global_lock();
 
-    GError *error = NULL;
-    LibmsiRecord *rec = libmsi_database_get_primary_keys(db, szTableName, &error);
-    g_object_unref(db);
+    g_object_ref(db);          /* protective ref (matches public API) */
 
-    if (!rec) {
+    LibmsiRecord *rec = NULL;
+    unsigned r = _libmsi_database_get_primary_keys(db, szTableName, &rec);
+
+    g_object_unref(db);        /* drop protective ref */
+    g_object_unref(db);        /* drop handle_table_get_typed ref */
+
+    if (r != LIBMSI_RESULT_SUCCESS || !rec) {
         libmsi_global_unlock();
-        return gerror_to_msi(error);
+        return ERROR_FUNCTION_FAILED;
     }
 
     MSIHANDLE handle = handle_table_alloc(G_OBJECT(rec), HANDLE_RECORD);
@@ -285,20 +294,25 @@ MsiDatabaseIsTablePersistentA(MSIHANDLE hDatabase, LPCSTR szTableName)
     if (!db)
         return MSICONDITION_ERROR;
 
+    /*
+     * Use internal API to avoid LIBMSI_IS_DATABASE type-check macro.
+     * Add protective ref/unref to match the public API's bracketing.
+     */
     libmsi_global_lock();
 
-    GError *error = NULL;
-    gboolean persistent = libmsi_database_is_table_persistent(db, szTableName, &error);
-    g_object_unref(db);
+    g_object_ref(db);          /* protective ref (matches public API) */
+
+    LibmsiCondition r = _libmsi_database_is_table_persistent(db, szTableName);
+
+    g_object_unref(db);        /* drop protective ref */
+    g_object_unref(db);        /* drop handle_table_get_typed ref */
 
     libmsi_global_unlock();
 
-    if (error) {
-        g_error_free(error);
+    if (r == LIBMSI_CONDITION_NONE || r == LIBMSI_CONDITION_ERROR)
         return MSICONDITION_ERROR;
-    }
 
-    return persistent ? MSICONDITION_TRUE : MSICONDITION_FALSE;
+    return (r == LIBMSI_CONDITION_TRUE) ? MSICONDITION_TRUE : MSICONDITION_FALSE;
 }
 
 MSICONDITION WINAPI
@@ -508,16 +522,23 @@ MsiDatabaseApplyTransformA(MSIHANDLE hDatabase, LPCSTR szTransformFile,
     if (!db)
         return ERROR_INVALID_HANDLE;
 
+    /*
+     * Use internal API to avoid LIBMSI_IS_DATABASE type-check macro.
+     * Add protective ref/unref to match the public API's bracketing.
+     */
     libmsi_global_lock();
 
-    GError *error = NULL;
-    gboolean ok = libmsi_database_apply_transform(db, szTransformFile, &error);
-    g_object_unref(db);
+    g_object_ref(db);          /* protective ref (matches public API) */
+
+    unsigned r = _libmsi_database_apply_transform(db, szTransformFile);
+
+    g_object_unref(db);        /* drop protective ref */
+    g_object_unref(db);        /* drop handle_table_get_typed ref */
 
     libmsi_global_unlock();
 
-    if (!ok)
-        return gerror_to_msi(error);
+    if (r != LIBMSI_RESULT_SUCCESS)
+        return ERROR_FUNCTION_FAILED;
 
     return ERROR_SUCCESS;
 }
