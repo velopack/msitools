@@ -284,3 +284,11 @@ handle_table_auto_init(void)
     g_type_ensure(libmsi_summary_info_get_type());
     handle_table_init();
 }
+
+__attribute__((destructor))
+static void
+handle_table_auto_cleanup(void)
+{
+    handle_table_close_all();
+    gsf_shutdown();
+}
